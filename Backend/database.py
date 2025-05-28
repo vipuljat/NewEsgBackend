@@ -23,6 +23,8 @@ reports_collection = db["reports"]
 roles_collection = db["roles"]
 plants_employees_collection = db["plants_employees"]
 
+new_reports_collection = db["new_report"]
+
 async def init_db():
     """
     Initialize the database with necessary indexes and migrate existing data.
@@ -62,3 +64,6 @@ def get_plants_collection():
 
 def get_plants_employees_collection():
     return plants_employees_collection  
+
+def get_new_reports_collection():
+    return new_reports_collection

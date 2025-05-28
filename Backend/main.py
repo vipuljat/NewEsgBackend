@@ -3,9 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 #from routes.plantRoutes import router as plant_router
 from routes.loginRoute import router as users_router
 from routes.companyRoutes import company_router as company_router
-from routes.reportRoute import router as report_router
 from routes.roleAccessRoutes import router as role_access_router
 from routes.plantRoutes import router
+from routes.newReportRoute import router as new_report_router
 import logging
 from database import init_db
 
@@ -28,14 +28,15 @@ app.include_router(users_router)
 # Include the company routes
 app.include_router(company_router)
 
-# Include the report routes
-app.include_router(report_router)
 
 # Include the role access routes
 app.include_router(role_access_router)
 
 # Include the plant routes
 app.include_router(router)
+
+# Include the new report routes
+app.include_router(new_report_router)
 
 
 
