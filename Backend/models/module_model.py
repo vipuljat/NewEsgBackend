@@ -8,19 +8,17 @@ class QuestionType(str, Enum):
     TABLE = "table"
     SUBJECTIVE = "subjective"
 
-class SubjectiveType(str, Enum):
-    STRING = "string"         # For text/string inputs
-    INTEGER = "integer"       # For whole numbers
-    FLOAT = "float"          # For decimal numbers
-    BOOLEAN = "boolean"      # For yes/no inputs
+
    
 
 class Question(BaseModel):
     question_id: str = Field(...)  # Format: Q1_P8, Q24_A etc.
     question: str = Field(...)     # The actual question text
     type: QuestionType = Field(...) # table or subjective
-    subjective_type: Optional[SubjectiveType] = None  # Required if type is subjective
     is_required: bool = Field(default=True)  # Whether the question is mandatory
+    string_value: Optional[str] = None
+    decimal_value: Optional[float] = None
+    boolean_value: Optional[bool] = None
     link: Optional[str] = None     # Optional link
     note: Optional[str] = None     # Optional additional note
 
