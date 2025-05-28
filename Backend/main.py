@@ -6,6 +6,7 @@ from routes.companyRoutes import company_router as company_router
 from routes.roleAccessRoutes import router as role_access_router
 from routes.plantRoutes import router
 from routes.newReportRoute import router as new_report_router
+from routes.moduleRoutes import router as module_router
 import logging
 from database import init_db
 
