@@ -1,16 +1,14 @@
 from datetime import datetime
 from fastapi import HTTPException
 from models.module_model import Module, SubModule, QuestionCategory, Question, ModuleCollection
-from database import company_collection, plants_collection
+from database import company_collection, plants_collection , modules_collection
 from typing import List
 
 # Initialize a new collection for modules
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.config import settings
 
-client = AsyncIOMotorClient(settings.MONGO_URI)
-db = client["esg_database"]
-modules_collection = db["modules"]
+
 
 async def get_all_modules_service(company_id: str, plant_id: str, financial_year: str) -> List[ModuleCollection]:
     """
