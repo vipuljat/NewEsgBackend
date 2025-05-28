@@ -6,6 +6,7 @@ from routes.companyRoutes import company_router as company_router
 from routes.reportRoute import router as report_router
 from routes.roleAccessRoutes import router as role_access_router
 from routes.plantRoutes import router
+from routes.moduleRoutes import router as module_router
 import logging
 from database import init_db
 
@@ -37,7 +38,8 @@ app.include_router(role_access_router)
 # Include the plant routes
 app.include_router(router)
 
-
+# Include the module routes
+app.include_router(module_router)
 
 app.add_middleware(
     CORSMiddleware,
