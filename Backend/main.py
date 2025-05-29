@@ -39,7 +39,8 @@ app.include_router(router)
 # Include the new report routes
 app.include_router(new_report_router)
 
-
+# Include the module routes
+app.include_router(module_router)
 
 app.add_middleware(
     CORSMiddleware,

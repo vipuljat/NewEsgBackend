@@ -3,10 +3,31 @@ from pydantic import BaseModel, Field, constr
 from datetime import datetime
 import uuid
 from enum import Enum
+from pydantic import validator
 
 class QuestionType(str, Enum):
     TABLE = "table"
     SUBJECTIVE = "subjective"
+
+class StringMetadata(BaseModel):
+    enabled: bool = Field(default=False)
+    required: bool = Field(default=False)
+
+class DecimalMetadata(BaseModel):
+    enabled: bool = Field(default=False)
+    required: bool = Field(default=False)
+
+class BooleanMetadata(BaseModel):
+    enabled: bool = Field(default=False)
+    required: bool = Field(default=False)
+
+class LinkMetadata(BaseModel):
+    enabled: bool = Field(default=False)
+    required: bool = Field(default=False)
+
+class NoteMetadata(BaseModel):
+    enabled: bool = Field(default=False)
+    required: bool = Field(default=False)
 
 class Question(BaseModel):
     question_id: str = Field(...)  # Format: Q1_P8, Q24_A etc.
@@ -26,13 +47,36 @@ class Question(BaseModel):
     boolean_value_required: bool = Field(default=False)
     link_required: bool = Field(default=False)
     note_required: bool = Field(default=False)
-    
-    # Actual values will be stored in the response collection, not here
-    string_value: Optional[str] = None
-    decimal_value: Optional[float] = None
-    boolean_value: Optional[bool] = None
-    link: Optional[str] = None
-    note: Optional[str] = None
+
+    @validator('string_value_required')
+    def validate_string_required(cls, v, values):
+        if v and not values.get('has_string_value', False):
+            raise ValueError('string_value_required cannot be True if has_string_value is False')
+        return v
+
+    @validator('decimal_value_required')
+    def validate_decimal_required(cls, v, values):
+        if v and not values.get('has_decimal_value', False):
+            raise ValueError('decimal_value_required cannot be True if has_decimal_value is False')
+        return v
+
+    @validator('boolean_value_required')
+    def validate_boolean_required(cls, v, values):
+        if v and not values.get('has_boolean_value', False):
+            raise ValueError('boolean_value_required cannot be True if has_boolean_value is False')
+        return v
+
+    @validator('link_required')
+    def validate_link_required(cls, v, values):
+        if v and not values.get('has_link', False):
+            raise ValueError('link_required cannot be True if has_link is False')
+        return v
+
+    @validator('note_required')
+    def validate_note_required(cls, v, values):
+        if v and not values.get('has_note', False):
+            raise ValueError('note_required cannot be True if has_note is False')
+        return v
 
 class QuestionCategory(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
