@@ -26,6 +26,8 @@ modules_collection = db["modules"]
 
 new_reports_collection = db["new_report"]
 
+new_reports_collection = db["new_report"]
+
 async def init_db():
     """
     Initialize the database with necessary indexes and migrate existing data.
