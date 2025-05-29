@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException
-from typing import List
+from fastapi import APIRouter, HTTPException, Depends, status
+from typing import List, Dict
 from models.module_model import Module, SubModule, QuestionCategory, Question, ModuleCollection
 from services.moduleService import (
     get_all_modules_service,
-    get_module_by_id_service,
+    get_module_by_id,
     create_module_service,
     update_module_service,
     get_submodule_by_id_service,
@@ -14,6 +14,9 @@ from services.moduleService import (
     create_question_service,
     update_question_service
 )
+from auth import get_current_user
+import uuid
+from datetime import datetime
 
 router = APIRouter(prefix="/modules", tags=["Modules"])
 
@@ -36,7 +39,7 @@ async def get_module(module_id: str):
     Get a specific module by its ID.
     """
     try:
-        return await get_module_by_id_service(module_id)
+        return await get_module_by_id(module_id)
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -151,4 +154,79 @@ async def update_question(module_id: str, submodule_id: str, category_id: str, q
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.post("/names")
+async def get_module_names(module_ids: List[str], current_user: Dict = Depends(get_current_user)):
+    """
+    Get module names for a list of module IDs.
+    This endpoint is specifically for the sidebar navigation.
+    """
+    try:
+        module_names = []
+        for module_id in module_ids:
+            module = await get_module_by_id(module_id)
+            if module:
+                module_names.append({
+                    "id": module_id,
+                    "name": module.get("module_name", "Unknown Module"),
+                    "icon": module.get("icon", "default"),  # Optional: for sidebar icons
+                    "route": f"/module/{module_id}"  # Frontend routing path
+                })
+        
+        return {
+            "modules": module_names
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching module names: {str(e)}"
+        )
+
+@router.post("/details")
+async def get_modules_by_ids(module_ids: List[str], current_user: Dict = Depends(get_current_user)):
+    """
+    Get complete module details for a list of module IDs.
+    This endpoint returns full module data for the sidebar and future use.
+    """
+    try:
+        modules_data = []
+        for module_id in module_ids:
+            module = await get_module_by_id(module_id)
+            if module and isinstance(module, dict):
+                # Convert ObjectId to string
+                if '_id' in module:
+                    module['_id'] = str(module['_id'])
+                
+                # Handle nested ObjectIds in submodules
+                if 'submodules' in module:
+                    for submodule in module['submodules']:
+                        if '_id' in submodule:
+                            submodule['_id'] = str(submodule['_id'])
+                        # Handle nested categories
+                        if 'categories' in submodule:
+                            for category in submodule['categories']:
+                                if '_id' in category:
+                                    category['_id'] = str(category['_id'])
+                                # Handle nested questions
+                                if 'questions' in category:
+                                    for question in category['questions']:
+                                        if '_id' in question:
+                                            question['_id'] = str(question['_id'])
+
+                # Handle datetime serialization
+                if 'created_at' in module:
+                    module['created_at'] = module['created_at'].isoformat() if module['created_at'] else None
+                if 'updated_at' in module:
+                    module['updated_at'] = module['updated_at'].isoformat() if module['updated_at'] else None
+                
+                modules_data.append(module)
+        
+        return {
+            "modules": modules_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching module details: {str(e)}"
+        ) 

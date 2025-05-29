@@ -1,14 +1,19 @@
 from datetime import datetime
 from fastapi import HTTPException
 from models.module_model import Module, SubModule, QuestionCategory, Question, ModuleCollection
-from database import company_collection, plants_collection , modules_collection
-from typing import List
+from database import company_collection, plants_collection, get_module_collection
+from typing import List, Dict, Optional
+import logging
 
 # Initialize a new collection for modules
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.config import settings
 
+# Get logger
+logger = logging.getLogger(__name__)
 
+# Get database collection
+modules_collection = get_module_collection()
 
 async def get_all_modules_service(company_id: str, plant_id: str, financial_year: str) -> List[ModuleCollection]:
     """
@@ -41,14 +46,17 @@ async def get_all_modules_service(company_id: str, plant_id: str, financial_year
 
     return modules
 
-async def get_module_by_id_service(module_id: str) -> Module:
+async def get_module_by_id(module_id: str) -> Optional[Dict]:
     """
-    Get a specific module by its ID.
+    Get a module by its ID.
+    Returns None if module is not found.
     """
-    module = await modules_collection.find_one({"id": module_id})
-    if not module:
-        raise HTTPException(status_code=404, detail=f"Module {module_id} not found")
-    return module
+    try:
+        module = await modules_collection.find_one({"id": module_id})
+        return module
+    except Exception as e:
+        logger.error(f"Error fetching module {module_id}: {str(e)}")
+        return None
 
 async def create_module_service(module: Module) -> Module:
     """
