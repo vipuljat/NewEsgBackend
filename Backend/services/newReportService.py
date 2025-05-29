@@ -106,10 +106,6 @@ async def update_report(
             new_response = {}
             if update.response is not None:
                 new_response.update(update.response.dict(exclude_unset=True))
-            if update.link is not None:
-                new_response["link"] = update.link
-            if update.note is not None:
-                new_response["note"] = update.note
 
             # If no fields provided, skip update
             if not new_response:
@@ -150,3 +146,63 @@ async def update_report(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update report: {str(e)}")
+    
+    
+    
+async def fetch_question_responses(
+    company_id: str,
+    plant_id: str,
+    financial_year: str,
+    question_ids: List[str],
+) -> Dict[str, Dict]:
+    """
+    Fetch responses for specific question IDs from a report.
+
+    Args:
+        company_id: ID of the company.
+        plant_id: ID of the plant.
+        financial_year: Financial year.
+        question_ids: List of question IDs to fetch.
+        user_id: ID of the user.
+
+    Returns:
+        Dictionary with question IDs as keys and their responses as values.
+
+    Raises:
+        HTTPException: If report or question IDs are invalid.
+    """
+    try:
+        # Fetch report
+        report = await new_reports_collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id,
+            "financial_year": financial_year
+        })
+        if not report:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No report found for company {company_id}, plant {plant_id}, financial year {financial_year}"
+            )
+
+        # Extract responses
+        responses = report.get("responses", {})
+        result = {}
+        invalid_ids = []
+
+        for qid in question_ids:
+            if qid in responses:
+                result[qid] = responses[qid]
+            else:
+                invalid_ids.append(qid)
+
+        if invalid_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid question IDs: {', '.join(invalid_ids)}"
+            )
+
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch question responses: {str(e)}")

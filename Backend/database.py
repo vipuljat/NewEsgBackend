@@ -20,7 +20,6 @@ plants_collection = db["plants"]
 role_access_collection = db["role_access_collection"]
 roles_collection = db["roles"]
 reports_collection = db["reports"]
-roles_collection = db["roles"]
 plants_employees_collection = db["plants_employees"]
 modules_collection = db["modules"]
 

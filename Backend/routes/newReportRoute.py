@@ -1,10 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
 from models.newReportModel import Report, CreateReportRequest, QuestionUpdate
-from services.newReportService import create_report, get_report, update_report
-from pydantic import ValidationError
+from services.newReportService import create_report, get_report, update_report, fetch_question_responses
+from pydantic import ValidationError, BaseModel
+from auth import get_current_user
 
 router = APIRouter()
+
+class QuestionIdsRequest(BaseModel):
+    question_ids: List[str]
 
 async def get_current_user_id() -> str:
     # Mock dependency; in production, use OAuth2 or JWT
@@ -113,3 +117,42 @@ async def fetch_report(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
+
+@router.post("/questionResponses", response_model=Dict[str, Dict])
+async def fetch_question_responses_endpoint(
+    request: QuestionIdsRequest,
+    current_user: Dict[str, str] = Depends(get_current_user)
+):
+    """
+    Fetch responses for specific question IDs from a report, using token metadata.
+
+    Args:
+        request: Request body with a list of question IDs.
+        current_user: User info from JWT token, including company_id, plant_id, financial_year, user_id.
+
+    Returns:
+        Dictionary with question IDs as keys and their responses as values.
+
+    Raises:
+        HTTPException: If report or question IDs are invalid.
+    """
+    try:
+        # Normalize financial_year
+        normalized_financial_year = current_user["financial_year"].replace("_", "-")
+
+        # Validate question_ids
+        if not request.question_ids:
+            raise HTTPException(status_code=400, detail="Question IDs list cannot be empty")
+
+        # Fetch responses
+        responses = await fetch_question_responses(
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
+            financial_year=normalized_financial_year,
+            question_ids=request.question_ids,
+        )
+        return responses
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch question responses: {str(e)}")

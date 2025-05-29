@@ -33,7 +33,8 @@ class TokenResponse(BaseModel):
     email: EmailStr
     user_role: str
     company_id: str
-    plant_id: Optional[str] = None  # Optional for company admins
+    plant_id: Optional[str] = None
+    financial_year: Optional[str] = None
 
 @router.post("/login", response_model=TokenResponse)
 async def login_user(login_data: LoginRequest):
@@ -96,14 +97,14 @@ async def login_user(login_data: LoginRequest):
             user_id = str(user["_id"])
             user_role = user["user_role"]
             company_id = user["company_id"]
-            plant_id = None  # Admins are not plant-specific
+            plant_id = None
             email = user["email"]
+            financial_year = user.get("financial_year", "2023-2024")  # Fallback if missing
 
             logger.info(f"Admin logged in: user_id={user_id}, user_role={user_role}, company_id={company_id}")
 
         else:
             # Try authenticating as plant employee in plant_employee
-            # Use aggregation to match employee in the employees array
             pipeline = [
                 {
                     "$unwind": "$employees"
@@ -117,6 +118,7 @@ async def login_user(login_data: LoginRequest):
                     "$project": {
                         "company_id": 1,
                         "plant_id": 1,
+                        "financial_year": 1,
                         "employee": "$employees"
                     }
                 }
@@ -171,6 +173,7 @@ async def login_user(login_data: LoginRequest):
             company_id = employee_data["company_id"]
             plant_id = employee_data["plant_id"]
             email = employee["email"]
+            financial_year = employee_data.get("financial_year", "2023-2024")  # Use root-level financial_year
 
             logger.info(f"Employee logged in: user_id={user_id}, user_role={user_role}, company_id={company_id}, plant_id={plant_id}")
 
@@ -180,7 +183,8 @@ async def login_user(login_data: LoginRequest):
             "user_id": user_id,
             "user_role": user_role,
             "company_id": company_id,
-            "plant_id": plant_id
+            "plant_id": plant_id,
+            "financial_year": financial_year
         }
         access_token = create_access_token(data=token_data)
 
@@ -191,7 +195,8 @@ async def login_user(login_data: LoginRequest):
             email=email,
             user_role=user_role,
             company_id=company_id,
-            plant_id=plant_id
+            plant_id=plant_id,
+            financial_year=financial_year
         )
 
     except HTTPException:

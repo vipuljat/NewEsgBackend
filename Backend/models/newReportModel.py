@@ -28,8 +28,7 @@ class CreateReportRequest(BaseModel):
 class QuestionUpdate(BaseModel):
     question_id: str
     response: Optional[QuestionResponse] = None
-    link: Optional[str] = None
-    note: Optional[str] = None
+    
 
 class Report(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")

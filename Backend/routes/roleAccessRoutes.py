@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict
-from services.roleService import check_module_access, get_permissions, update_permissions
+from services.roleService import get_accessible_module_ids, get_permissions, update_permissions
+from auth import get_current_user, require_company_admin
 
 router = APIRouter(
     prefix="/roleAccess",
@@ -8,45 +9,15 @@ router = APIRouter(
     responses={404: {"description": "Not found"}}
 )
 
-# Placeholder dependency for user authentication
-async def get_current_user() -> Dict[str, str]:
-    """
-    Mock dependency to get the current user_id and user_role.
-    Replace with actual OAuth2/JWT dependency in production.
-    """
-    user = {
-        "user_id": "admin123",
-        "user_role": "admin"
-    }
-    if not user.get("user_id"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
-
-# Dependency to restrict access to company_admin role
-async def require_company_admin(current_user: Dict[str, str] = Depends(get_current_user)) -> Dict[str, str]:
-    """
-    Ensure the user has the company_admin role.
-    """
-    if current_user.get("user_role") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User role {current_user.get('user_role')} not authorized to manage role access"
-        )
-    return current_user
-
 @router.put("/company/{company_id}/plants/{plant_id}/permissions/{financial_year}")
 async def update_permissions_endpoint(
     company_id: str,
     plant_id: str,
     financial_year: str,
     permissions_data: Dict,
-    user_id: str = Depends(get_current_user)
+    current_user: Dict[str, str] = Depends(get_current_user)
 ):
-    return await update_permissions(company_id, plant_id, financial_year, permissions_data, user_id)
+    return await update_permissions(company_id, plant_id, financial_year, permissions_data, current_user["user_id"])
 
 @router.get("/company/{company_id}/plants/{plant_id}/permissions/{financial_year}")
 async def get_permissions_endpoint(
@@ -57,47 +28,41 @@ async def get_permissions_endpoint(
     return await get_permissions(company_id, plant_id, financial_year)
 
 @router.get(
-    "/company/{company_id}/plants/{plant_id}/permissions/{financial_year}/module-access",
-    response_model=Dict[str, bool],
-    summary="Check module access for a user role",
-    description="Check if the user's role has access to a specified module."
+    "/moduleAccess",
+    response_model=Dict[str, List[str]],
+    summary="Get accessible module IDs for a user role",
+    description="Fetch all module IDs that the user's role has access to."
 )
-async def check_module_access_endpoint(
-    company_id: str,
-    plant_id: str,
-    financial_year: str,
-    module_name: str = Query(..., description="Name of the module to check access for"),
-    current_user: Dict[str, str] = Depends(require_company_admin)
+async def get_module_access_endpoint(
+    current_user: Dict[str, str] = Depends(get_current_user)
 ):
-    
-    print(f"company_id: {company_id}, plant_id: {plant_id}, financial_year: {financial_year}, module_name: {module_name}, current_user: {current_user}")
     """
-    Check if the user's role has access to a specified module.
+    Fetch all module IDs that the user's role has access to.
 
     Args:
         company_id: Unique identifier for the company.
         plant_id: Plant identifier.
         financial_year: Financial year (e.g., '2023-2024').
-        module_name: Name of the module (e.g., 'workforce', 'compliance').
-        current_user: Current user info including user_id and user_role.
+        current_user: Current user info including user_id, user_role, company_id, plant_id.
 
     Returns:
-        Dictionary with 'has_access' indicating if the role can access the module.
+        Dictionary with a list of module IDs the role can access.
 
     Raises:
-        HTTPException: If document, role, or module is invalid.
+        HTTPException: If document or role is not found.
     """
+    print(f"current_user={current_user}")
     
-    normalized_financial_year = financial_year.replace("-", "_")
+    normalized_financial_year = current_user["financial_year"].replace("-", "_")
     try:
-        has_access = await check_module_access(
-            company_id=company_id,
-            plant_id=plant_id,
+        
+        module_ids = await get_accessible_module_ids(
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
             financial_year=normalized_financial_year,
-            user_role=current_user["user_role"],
-            module_name=module_name
+            user_role=current_user["user_role"]
         )
-        return {"has_access": has_access}
+        return {"module_ids": module_ids}
     except HTTPException as e:
         raise e
     except Exception as e:
