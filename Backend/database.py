@@ -27,8 +27,7 @@ modules_collection = db["modules"]
 new_reports_collection = db["new_report"]
 
 new_reports_collection = db["new_report"]
-
-logger = logging.getLogger(__name__)
+audit_collection = db["audit_collection"]
 
 async def init_db():
     """
@@ -73,12 +72,5 @@ def get_plants_employees_collection():
 def get_new_reports_collection():
     return new_reports_collection
 
-def get_module_collection():
-    """
-    Get the modules collection from the database.
-    """
-    try:
-        return db["modules"]
-    except Exception as e:
-        logger.error(f"Error getting modules collection: {str(e)}")
-        return None
+def get_audit_collection():
+    return audit_collection

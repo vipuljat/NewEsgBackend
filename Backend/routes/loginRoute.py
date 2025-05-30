@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
 import logging
-from typing import Optional, Dict, Any
+from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from utils.jwt_handler import create_access_token
 from database import get_auth_users_collection, get_plants_employees_collection
@@ -31,7 +31,7 @@ class TokenResponse(BaseModel):
     token_type: str
     user_id: str
     email: EmailStr
-    user_role: str
+    user_role: List[str]
     company_id: str
     plant_id: Optional[str] = None
     financial_year: Optional[str] = None

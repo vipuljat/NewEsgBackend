@@ -17,6 +17,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, str
         company_id: str = payload.get("company_id")
         plant_id: str = payload.get("plant_id")
         financial_year: str = payload.get("financial_year")
+        user_id: str = payload.get("user_id")
         
         if not all([financial_year, user_role, company_id, plant_id]):
             raise HTTPException(
@@ -30,7 +31,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, str
             "user_role": user_role,
             "company_id": company_id,
             "plant_id": plant_id,
-            "financial_year": financial_year
+            "financial_year": financial_year,
+            "user_id": user_id
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(

@@ -1,26 +1,32 @@
-from pydantic_core import core_schema
 from bson import ObjectId
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import core_schema
+from typing import Any
 
 class PyObjectId(ObjectId):
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+        def validate(value: Any) -> str:
+            if isinstance(value, ObjectId):
+                return str(value)
+            if isinstance(value, str) and ObjectId.is_valid(value):
+                return value
             raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
 
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
         return core_schema.union_schema([
-            core_schema.is_instance_schema(ObjectId),
-            core_schema.no_info_after_validator_function(cls.validate, core_schema.str_schema())
+            core_schema.custom_error_schema(
+                core_schema.str_schema(),
+                custom_error_type="invalid_objectid",
+                custom_error_message="Invalid ObjectId",
+            ),
+            core_schema.no_info_after_validator_function(
+                validate,
+                core_schema.is_instance_schema(ObjectId),
+            ),
         ])
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema, handler):
-        json_schema = handler(core_schema)
-        json_schema.update(type="string")
-        return json_schema
+    def validate(cls, value: Any) -> ObjectId:
+        if not ObjectId.is_valid(value):
+            raise ValueError("Invalid ObjectId")
+        return ObjectId(value)

@@ -1,29 +1,104 @@
 from fastapi import HTTPException
 from typing import Dict, List
 from datetime import datetime
-from bson import ObjectId
-from database import role_access_collection
+from database import role_access_collection , plants_employees_collection
 import uuid
 
-async def update_permissions(company_id: str, plant_id: str, financial_year: str, permissions_data: Dict, user_id: str) -> Dict[str, str]:
-    try:
-        permissions_data["company_id"] = company_id
-        permissions_data["plant_id"] = plant_id
-        permissions_data["financial_year"] = financial_year
-        permissions_data["updated_at"] = datetime.utcnow()
+async def update_permissions(
+    company_id: str,
+    plant_id: str,
+    financial_year: str,
+    employee_name: str,
+    employee_email: str,
+    roles: List[str],
+    updated_by: str
+) -> Dict[str, str]:
+    """
+    Update role access for an employee in plants_employees collection.
 
-        result = await role_access_collection.replace_one(
-            {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
-            permissions_data,
-            upsert=True
+    Args:
+        company_id: Unique identifier for the company.
+        plant_id: Plant identifier.
+        financial_year: Financial year (e.g., '2023_2024').
+        employee_name: Name of the employee.
+        employee_email: Email of the employee.
+        roles: List of role IDs to grant access to.
+        updated_by: ID of the user updating permissions.
+
+    Returns:
+        Dictionary with success message.
+
+    Raises:
+        HTTPException: If employee not found or update fails.
+    """
+    try:
+        # Verify employee exists in plants_employees collection
+        document = await plants_employees_collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id,
+            "financial_year": financial_year,
+            "employees": {
+                "$elemMatch": {
+                    "name": employee_name,
+                    "email": employee_email
+                }
+            }
+        })
+        if not document:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Employee {employee_name} with email {employee_email} not found for company {company_id}, plant {plant_id}, financial year {financial_year}"
+            )
+
+        # Find employee in employees array
+        employee = next(
+            (emp for emp in document["employees"] if emp["name"] == employee_name and emp["email"] == employee_email),
+            None
         )
-        if result.modified_count == 0 and result.upserted_id is None:
-            raise HTTPException(status_code=500, detail="Failed to update permissions")
+        if not employee:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Employee {employee_name} with email {employee_email} not found"
+            )
+
+        # Get existing roles (default to empty list if not set)
+        existing_roles = employee.get("roles", [])
+
+        # Combine existing and new roles, removing duplicates
+        updated_roles = list(set(existing_roles + roles))
+
+        # Update employee's roles, updated_by, and updated_at
+        result = await plants_employees_collection.update_one(
+            {
+                "company_id": company_id,
+                "plant_id": plant_id,
+                "financial_year": financial_year,
+                "employees": {
+                    "$elemMatch": {
+                        "name": employee_name,
+                        "email": employee_email
+                    }
+                }
+            },
+            {
+                "$set": {
+                    "employees.$.roles": updated_roles,
+                    "employees.$.updated_by": updated_by,
+                    "employees.$.updated_at": datetime.utcnow()
+                }
+            }
+        )
+
+        if result.modified_count == 0:
+            raise HTTPException(status_code=500, detail="Failed to update employee roles")
 
         return {"message": "Permissions updated successfully"}
+    except HTTPException as e:
+        raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update permissions: {str(e)}")
-
+    
+    
 async def get_permissions(company_id: str, plant_id: str, financial_year: str) -> Dict:
     try:
         permissions = await role_access_collection.find_one({

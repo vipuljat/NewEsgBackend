@@ -17,7 +17,7 @@ class Employee(BaseModel):
     email: EmailStr
     password: str
     department: str
-    user_role: str  # e.g., "hr", "admin", "staff"
+    user_role: List[str]  # e.g., "hr", "admin", "staff"
 
 class PlantEmployee(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
@@ -36,3 +36,8 @@ class InitializePlantRequest(BaseModel):
     plant_id: str
     financial_year: str
     plant_manager: PlantManager
+
+
+class UpdateEmployeeRolesRequest(BaseModel):
+    employee_id: str  # Can also use email for lookup
+    roles: List[str]  # Roles to append to user_role

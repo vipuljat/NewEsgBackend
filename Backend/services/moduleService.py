@@ -362,4 +362,80 @@ async def update_question_service(
     if result.modified_count == 0:
         raise HTTPException(status_code=500, detail="Failed to update question")
 
-    return question 
+    return question
+
+async def create_multiple_questions_service(
+    module_id: str,
+    submodule_id: str,
+    category_id: str,
+    questions: List[Question]
+) -> List[Question]:
+    """
+    Create multiple questions in a category at once.
+    """
+    # Get existing category
+    category = await get_question_category_service(module_id, submodule_id, category_id)
+
+    # Check for duplicate question IDs in the request
+    question_ids = [q.question_id for q in questions]
+    if len(set(question_ids)) != len(question_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="Duplicate question IDs in request"
+        )
+
+    # Check for existing question IDs in the category
+    existing_ids = {q.question_id for q in category.questions}
+    for q in questions:
+        if q.question_id in existing_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Question {q.question_id} already exists in this category"
+            )
+        # Validate metadata flags against required flags
+        if q.string_value_required and not q.has_string_value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot mark string value as required when string input is not allowed for question {q.question_id}"
+            )
+        if q.decimal_value_required and not q.has_decimal_value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot mark decimal value as required when decimal input is not allowed for question {q.question_id}"
+            )
+        if q.boolean_value_required and not q.has_boolean_value:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot mark boolean value as required when boolean input is not allowed for question {q.question_id}"
+            )
+        if q.link_required and not q.has_link:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot mark link as required when link input is not allowed for question {q.question_id}"
+            )
+        if q.note_required and not q.has_note:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot mark note as required when note input is not allowed for question {q.question_id}"
+            )
+
+    # Add all questions at once
+    result = await modules_collection.update_one(
+        {
+            "id": module_id,
+            "submodules.id": submodule_id,
+            "submodules.question_categories.id": category_id
+        },
+        {
+            "$push": {"submodules.$[sm].question_categories.$[cat].questions": {"$each": [q.dict() for q in questions]}},
+            "$set": {"updated_at": datetime.utcnow()}
+        },
+        array_filters=[
+            {"sm.id": submodule_id},
+            {"cat.id": category_id}
+        ]
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to add questions")
+
+    return questions

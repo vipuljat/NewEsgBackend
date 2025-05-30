@@ -1,7 +1,20 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import List, Optional, Dict
 from models.base import PyObjectId
 from datetime import datetime
+
+
+class ModuleAccessRequest(BaseModel):
+    user_role: str
+    company_id: str
+    plant_id: str
+    financial_year: str
+
+class UpdatePermissionsRequest(BaseModel):
+    employee_name: str
+    employee_email: str
+    roles : List[str]  # List of role IDs to grant access to
+
 
 class Role(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")

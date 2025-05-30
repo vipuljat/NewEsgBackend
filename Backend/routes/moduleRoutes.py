@@ -12,13 +12,19 @@ from services.moduleService import (
     create_question_category_service,
     get_question_service,
     create_question_service,
-    update_question_service
+    update_question_service,
+    create_multiple_questions_service
 )
+from pydantic import BaseModel
 from auth import get_current_user
 import uuid
 from datetime import datetime
 
 router = APIRouter(prefix="/modules", tags=["Modules"])
+
+# Pydantic request model for bulk question creation
+class MultipleQuestionsRequest(BaseModel):
+    questions: List[Question]
 
 # Module endpoints
 @router.get("/", response_model=List[ModuleCollection])
@@ -154,6 +160,29 @@ async def update_question(module_id: str, submodule_id: str, category_id: str, q
     except HTTPException as e:
         raise e
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.post("/{module_id}/submodules/{submodule_id}/categories/{category_id}/questions/bulk", response_model=List[Question])
+async def create_multiple_questions(
+    module_id: str,
+    submodule_id: str,
+    category_id: str,
+    request: MultipleQuestionsRequest
+):
+    """
+    Create multiple questions in a category at once.
+    """
+    try:
+        return await create_multiple_questions_service(
+            module_id, submodule_id, category_id, request.questions
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/names")
