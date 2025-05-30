@@ -88,6 +88,23 @@ async def get_submodule(module_id: str, submodule_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@router.get("/{module_id}/submodules", response_model=List[SubModule])
+async def get_all_submodules(module_id: str):
+    """
+    Get all submodules for a specific module.
+    """
+    try:
+        module = await get_module_by_id(module_id)
+        if not module:
+            raise HTTPException(status_code=404, detail="Module not found")
+        
+        # Return the submodules list from the module
+        return module.get("submodules", [])
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @router.post("/{module_id}/submodules", response_model=SubModule)
 async def create_submodule(module_id: str, submodule: SubModule):
     """
@@ -179,10 +196,6 @@ async def create_multiple_questions(
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
-
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/names")
