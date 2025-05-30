@@ -74,3 +74,6 @@ def get_new_reports_collection():
 
 def get_audit_collection():
     return audit_collection
+
+def get_module_collection():
+    return modules_collection
