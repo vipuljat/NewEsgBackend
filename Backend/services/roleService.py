@@ -118,24 +118,24 @@ async def get_accessible_module_ids(
     company_id: str,
     plant_id: str,
     financial_year: str,
-    user_role: str
+    user_roles: List[str]
 ) -> List[str]:
-    print(f"get_accessible_module_ids: company_id={company_id}, plant_id={plant_id}, financial_year={financial_year}, user_role={user_role}")
     """
-    Fetch module IDs with true permissions for a user role.
+    Fetch module IDs with true permissions for a list of user roles.
 
     Args:
         company_id: Unique identifier for the company.
         plant_id: Plant identifier.
         financial_year: Financial year (e.g., '2023_2024').
-        user_role: Role of the user (e.g., 'admin').
+        user_roles: List of user roles (e.g., ['admin', 'manager']).
 
     Returns:
-        List of module IDs (UUIDs) with true permissions.
+        List of unique module IDs (UUIDs) with true permissions across all roles.
 
     Raises:
-        HTTPException: If document or role is not found.
+        HTTPException: If document or roles are not found.
     """
+    print(f"get_accessible_module_ids: company_id={company_id}, plant_id={plant_id}, financial_year={financial_year}, user_roles={user_roles}")
     
     doc = await role_access_collection.find_one({
         "company_id": company_id,
@@ -149,22 +149,31 @@ async def get_accessible_module_ids(
             detail=f"No permissions document found for company {company_id}, plant {plant_id}, financial year {financial_year}"
         )
 
-    role_entry = next(
-        (entry for entry in doc.get("role_permissions", []) if entry["role"] == user_role),
-        None
-    )
+    role_permissions = doc.get("role_permissions", [])
+    accessible_module_ids = set()
 
-    if not role_entry:
+    # Collect module IDs for all roles
+    found_roles = []
+    for role in user_roles:
+        role_entry = next(
+            (entry for entry in role_permissions if entry["role"] == role),
+            None
+        )
+        if role_entry:
+            found_roles.append(role)
+            module_ids = [
+                key for key, value in role_entry["permissions"].items()
+                if value is True and is_valid_uuid(key)
+            ]
+            accessible_module_ids.update(module_ids)
+
+    if not found_roles:
         raise HTTPException(
             status_code=404,
-            detail=f"Role {user_role} not found in permissions"
+            detail=f"None of the roles {user_roles} found in permissions"
         )
 
-    module_ids = [
-        key for key, value in role_entry["permissions"].items()
-        if value is True and is_valid_uuid(key)
-    ]
-    
+    module_ids = list(accessible_module_ids)
     print(f"Accessible module IDs: {module_ids}")
     return module_ids
 

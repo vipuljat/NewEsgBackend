@@ -5,7 +5,7 @@ from datetime import datetime
 
 
 class ModuleAccessRequest(BaseModel):
-    user_role: str
+    user_roles: List[str]  # Changed from user_role: str
     company_id: str
     plant_id: str
     financial_year: str
