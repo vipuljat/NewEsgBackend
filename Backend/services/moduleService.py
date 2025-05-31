@@ -58,6 +58,13 @@ async def get_module_by_id(module_id: str) -> Optional[Dict]:
         logger.error(f"Error fetching module {module_id}: {str(e)}")
         return None
 
+# Helper to match the usage of get_module_by_id_service in this file
+async def get_module_by_id_service(module_id: str) -> Dict:
+    module = await get_module_by_id(module_id)
+    if not module:
+        raise HTTPException(status_code=404, detail=f"Module {module_id} not found")
+    return module
+
 async def create_module_service(module: Module) -> Module:
     """
     Create a new module.
