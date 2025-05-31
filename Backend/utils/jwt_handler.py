@@ -17,7 +17,7 @@ load_dotenv()
 # Get the secret key from environment variables
 SECRET_KEY = os.getenv("SECRET_KEY", "your-default-secret-key")  # Fallback for development
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
