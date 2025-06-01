@@ -281,6 +281,9 @@ async def create_question_service(
             detail="Cannot mark note as required when note input is not allowed"
         )
 
+    # Validate table_metadata for table-type questions
+    validate_table_metadata(question)
+
     # Add question
     result = await modules_collection.update_one(
         {
@@ -345,6 +348,9 @@ async def update_question_service(
             status_code=400,
             detail="Cannot mark note as required when note input is not allowed"
         )
+
+    # Validate table_metadata for table-type questions
+    validate_table_metadata(question)
 
     # Update question
     result = await modules_collection.update_one(
@@ -426,6 +432,9 @@ async def create_multiple_questions_service(
                 detail=f"Cannot mark note as required when note input is not allowed for question {q.question_id}"
             )
 
+        # Validate table_metadata for table-type questions
+        validate_table_metadata(q)
+
     # Add all questions at once
     result = await modules_collection.update_one(
         {
@@ -446,3 +455,39 @@ async def create_multiple_questions_service(
         raise HTTPException(status_code=500, detail="Failed to add questions")
 
     return questions
+
+def validate_table_metadata(question: Question):
+    """
+    Validate the table_metadata field for table-type questions.
+    Checks per-column and per-row constraints for consistency.
+    Raises HTTPException if invalid.
+    """
+    if question.type != "table":
+        return  # Only validate for table questions
+    if not question.table_metadata:
+        raise HTTPException(status_code=400, detail="table_metadata is required for table-type questions")
+    metadata = question.table_metadata
+    # Validate headers
+    def validate_header(header):
+        if header.allowed_values and not isinstance(header.allowed_values, list):
+            raise HTTPException(status_code=400, detail=f"allowed_values for header '{header.label}' must be a list")
+        if header.min_value is not None and header.max_value is not None:
+            if header.min_value > header.max_value:
+                raise HTTPException(status_code=400, detail=f"min_value cannot be greater than max_value for header '{header.label}'")
+        if header.cell_type and header.cell_type not in ["string", "decimal", "boolean", "link", "note"]:
+            raise HTTPException(status_code=400, detail=f"Invalid cell_type '{header.cell_type}' for header '{header.label}'")
+        if header.headers:
+            for subheader in header.headers:
+                validate_header(subheader)
+    for header in metadata.headers:
+        validate_header(header)
+    # Validate rows
+    for row in metadata.rows:
+        if row.allowed_values and not isinstance(row.allowed_values, list):
+            raise HTTPException(status_code=400, detail=f"allowed_values for row '{row.name}' must be a list")
+        if row.min_value is not None and row.max_value is not None:
+            if row.min_value > row.max_value:
+                raise HTTPException(status_code=400, detail=f"min_value cannot be greater than max_value for row '{row.name}'")
+    # Validate global cell_type
+    if metadata.cell_type and metadata.cell_type not in ["string", "decimal", "boolean", "link", "note"]:
+        raise HTTPException(status_code=400, detail=f"Invalid global cell_type '{metadata.cell_type}' in table_metadata")
