@@ -29,6 +29,41 @@ class NoteMetadata(BaseModel):
     enabled: bool = Field(default=False)
     required: bool = Field(default=False)
 
+class TableHeader(BaseModel):
+    label: str  # Top-level header (column head)
+    headers: Optional[List['TableHeader']] = None  # Nested headers (for multi-level headers)
+    cell_type: Optional[str] = None  # Per-column data type (overrides global if set)
+    required: Optional[bool] = None  # Is this column required?
+    allowed_values: Optional[List[str]] = None  # For dropdown/select columns
+    min_value: Optional[float] = None  # For numeric columns
+    max_value: Optional[float] = None
+    default_value: Optional[str] = None
+    min_width: Optional[int] = None  # For UI rendering
+    max_width: Optional[int] = None
+    help_text: Optional[str] = None
+
+class TableRow(BaseModel):
+    name: str  # Row name/parameter
+    required: bool = False
+    allowed_values: Optional[List[str]] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+    default_value: Optional[str] = None
+    help_text: Optional[str] = None
+    # Optionally, add more constraints here
+
+class TableMetadata(BaseModel):
+    headers: List[TableHeader]  # Hierarchical column headers
+    rows: List[TableRow]        # Row definitions
+    cell_type: Optional[str] = Field(None, description="Default data type for table cells: string, decimal, boolean, etc. (overridden by column)")
+    min_col_width: Optional[int] = None
+    max_col_width: Optional[int] = None
+    horizontal_scroll_threshold: Optional[int] = None  # Number of columns before scroll
+    # Optionally, add more constraints as needed
+
+# Update forward references for TableHeader
+TableHeader.update_forward_refs()
+
 class Question(BaseModel):
     question_id: str = Field(...)  # Format: Q1_P8, Q24_A etc.
     question: str = Field(...)     # The actual question text
@@ -47,6 +82,8 @@ class Question(BaseModel):
     boolean_value_required: bool = Field(default=False)
     link_required: bool = Field(default=False)
     note_required: bool = Field(default=False)
+
+    table_metadata: Optional[TableMetadata] = None  # Only for table-type questions
 
     @validator('string_value_required')
     def validate_string_required(cls, v, values):
