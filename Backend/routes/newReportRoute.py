@@ -14,6 +14,7 @@ async def get_current_user_id() -> str:
     # Mock dependency; in production, use OAuth2 or JWT
     return "admin"
 
+
 @router.post("/company/{company_id}/plants/{plant_id}/reportsNew", response_model=Dict[str, str])
 async def create_report_endpoint(
     company_id: str,
