@@ -6,12 +6,18 @@ from bson import ObjectId
 from models.base import PyObjectId
 
 
+class TableCell(BaseModel):
+    row: str
+    col: str
+    value: Any
+
 class QuestionResponse(BaseModel):
     string_value: Optional[str] = None
     bool_value: Optional[bool] = None
     decimal_value: Optional[float] = None
     link: Optional[str] = None
     note: Optional[str] = None
+    table: Optional[List[TableCell]] = None
 
 class UpdateLog(BaseModel):
     question_id: str
