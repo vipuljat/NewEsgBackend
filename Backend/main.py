@@ -58,7 +58,7 @@ def create_prompt_with_context(message: str, context: Optional[Dict[Any, Any]] =
     question_text = context.get('questionText', '')
     guidance_text = context.get('guidanceText', '')
     metadata = context.get('metadata', {})
-    answer = context.get('answer', '')
+    current_answer = context.get('answer', '')
 
     # Get requirements from metadata
     requirements = []
@@ -75,15 +75,31 @@ def create_prompt_with_context(message: str, context: Optional[Dict[Any, Any]] =
 
     requirements_text = '\n'.join([f"- {req}" for req in requirements]) if requirements else "No specific format requirements"
 
-    # Create a structured prompt that includes the context
-    structured_prompt = f"""Question Context:
-Question: {question_text}
-Guidance: {guidance_text}
-Current Answer: {answer}
-Question Type: {metadata.get('type', 'Not specified')}
+    # Create a more focused prompt for answer improvement
+    structured_prompt = f"""I am helping to improve an answer to an ESG (Environmental, Social, and Governance) related question. Here are the details:
 
-Requirements:
+ORIGINAL QUESTION:
+{question_text}
+
+GUIDANCE PROVIDED:
+{guidance_text}
+
+CURRENT ANSWER:
+{current_answer}
+
+RESPONSE REQUIREMENTS:
 {requirements_text}
+
+Question Category: {metadata.get('type', 'Not specified')}
+
+USER'S QUERY: {message}
+
+Your task is to help improve or validate the current answer. Please:
+1. Analyze the current answer's alignment with the question and guidance
+2. Consider the specified response requirements
+3. Address the user's specific query about the answer
+4. Suggest improvements or validate the current answer
+5. If suggesting changes, explain why they would make the answer better
 
 User Query: {message}
 
