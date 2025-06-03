@@ -32,6 +32,7 @@ class TokenResponse(BaseModel):
     user_id: str
     email: EmailStr
     user_role: List[str]
+    user_name: str
     company_id: str
     plant_id: Optional[str] = None
     financial_year: Optional[str] = None
@@ -170,6 +171,7 @@ async def login_user(login_data: LoginRequest):
             # Employee details
             user_id = employee["employee_id"]
             user_role = employee["user_role"]
+            user_name = employee["name"]
             company_id = employee_data["company_id"]
             plant_id = employee_data["plant_id"]
             email = employee["email"]
@@ -182,6 +184,7 @@ async def login_user(login_data: LoginRequest):
             "sub": email,
             "user_id": user_id,
             "user_role": user_role,
+            "user_name": user_name,
             "company_id": company_id,
             "plant_id": plant_id,
             "financial_year": financial_year
@@ -194,6 +197,7 @@ async def login_user(login_data: LoginRequest):
             user_id=user_id,
             email=email,
             user_role=user_role,
+            user_name  = user_name,
             company_id=company_id,
             plant_id=plant_id,
             financial_year=financial_year
