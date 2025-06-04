@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from typing import Dict, List, Optional
 from models.newReportModel import Report, QuestionUpdate
+from models.tableQuestionResponse import TableQuestionResponse
 from datetime import datetime
 import json
 from database import new_reports_collection, audit_collection
@@ -62,6 +63,11 @@ async def get_report(company_id: str, plant_id: str, financial_year: str, user_i
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
 
+# Helper: Determine if a question is table-type (stub, replace with real logic)
+def is_table_question(question_id: str) -> bool:
+    # TODO: Replace with actual metadata/mapping lookup
+    return question_id.startswith("TBL_")  # Example: all table questions start with 'TBL_'
+
 async def update_report(
     company_id: str,
     plant_id: str,
@@ -102,10 +108,20 @@ async def update_report(
 
         for update in updates:
             question_id = update.question_id
-            # Build QuestionResponse
             new_response = {}
             if update.response is not None:
-                new_response.update(update.response.dict(exclude_unset=True))
+                # Use correct model for table-type questions
+                if is_table_question(question_id):
+                    if not isinstance(update.response, TableQuestionResponse):
+                        # Try to coerce dict to TableQuestionResponse
+                        try:
+                            new_response = TableQuestionResponse(**update.response).dict(exclude_unset=True)
+                        except Exception as e:
+                            raise HTTPException(status_code=400, detail=f"Invalid table response for {question_id}: {str(e)}")
+                    else:
+                        new_response = update.response.dict(exclude_unset=True)
+                else:
+                    new_response.update(update.response.dict(exclude_unset=True))
 
             # If no fields provided, skip update
             if not new_response:
@@ -198,7 +214,14 @@ async def fetch_question_responses(
 
         for qid in question_ids:
             if qid in responses:
-                result[qid] = responses[qid]
+                # Use correct model for table-type questions
+                if is_table_question(qid):
+                    try:
+                        result[qid] = TableQuestionResponse(**responses[qid]).dict()
+                    except Exception as e:
+                        raise HTTPException(status_code=500, detail=f"Corrupt table response for {qid}: {str(e)}")
+                else:
+                    result[qid] = responses[qid]
             else:
                 invalid_ids.append(qid)
 
