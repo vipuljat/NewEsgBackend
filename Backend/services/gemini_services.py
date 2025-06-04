@@ -1,6 +1,3 @@
-# To run this code you need to install the following dependencies:
-# pip install google-genai
-
 import os
 import logging
 from typing import Optional, Dict, Any
@@ -17,11 +14,12 @@ class GeminiService:
         """Initialize the Gemini service with API key."""
         # Load environment variables
         load_dotenv()
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        # Support both VITE_API_KEY and GEMINI_API_KEY
+        self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("VITE_API_KEY")
         
         if not self.api_key:
-            logger.error("VITE_API_KEY not found in environment variables")
-            raise ValueError("VITE_API_KEY not found in environment variables")
+            logger.error("API key not found in environment variables (checked GEMINI_API_KEY and VITE_API_KEY)")
+            raise ValueError("API key not found in environment variables")
         
         # Initialize the Gemini client
         self.client = genai.Client(api_key=self.api_key)
@@ -87,20 +85,3 @@ Please provide a detailed response considering the above context."""
         except Exception as e:
             logger.error(f"Error generating content stream: {str(e)}")
             raise
-
-# For testing purposes
-if __name__ == "__main__":
-    import asyncio
-    
-    async def test_gemini():
-        service = GeminiService()
-        test_prompt = """This is my BRSR question and its response. Please improve the response.
-        Question: What measures has your organization taken to reduce greenhouse gas emissions?
-        Current Answer: Our organization has implemented energy-efficient lighting and reduced travel by 10%."""
-        
-        response = await service.generate_content(test_prompt)
-        print("Generated Response:")
-        print(response)
-
-    # Run the test
-    asyncio.run(test_gemini())
