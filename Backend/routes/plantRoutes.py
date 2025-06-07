@@ -1,7 +1,8 @@
 from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException
-from models.plantEmployeeModel import Employee, InitializePlantRequest, PlantEmployee, PlantManager, UpdateEmployeeRolesRequest
-from services.plantService import get_all_plant_employees_service, get_section_progress_service, initialize_plant_service, create_employee_service, update_employee_roles_service
+from pydantic import BaseModel
+from models.plantEmployeeModel import Employee, EmployeeUpdate, InitializePlantRequest, PlantEmployee, PlantManager, UpdateEmployeeRolesRequest
+from services.plantService import delete_employee_service, get_all_plant_employees_service, get_section_progress_service, initialize_plant_service, create_employee_service, update_employee_roles_service, update_employee_service
 from auth import get_current_user
 
 router = APIRouter(prefix="/plants", tags=["Plants"])
@@ -131,6 +132,26 @@ async def update_employee_roles(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
+    
+    
+@router.patch("/employees")
+async def update_employee(
+    employee_update: EmployeeUpdate,
+    current_user: Dict = Depends(get_current_user)
+) -> PlantEmployee:
+    if "admin" not in current_user.get("user_role", []) and "admin" not in current_user.get("user_role", []):
+        raise HTTPException(status_code=403, detail="Only admins can update employees")
+    try:
+        return await update_employee_service(
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
+            financial_year=current_user["financial_year"],
+            employee_update=employee_update
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/employees")
 async def get_all_plant_employees(
@@ -158,6 +179,48 @@ async def get_all_plant_employees(
             financial_year=current_user["financial_year"].replace("-", "_")
         )
         return employees
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    
+    
+class EmployeeDeleteRequest(BaseModel):
+    employee_id: str
+
+@router.delete("/employees/delete")
+async def delete_employee(
+    request: EmployeeDeleteRequest,
+    current_user: Dict = Depends(get_current_user)
+) -> Dict:
+    
+   
+    """
+    Delete an employee by ID, accessible only to admin.
+
+    Args:
+        request: Request body containing employee_id.
+        current_user: Current user info including user_id, user_role, company_id, plant_id, financial_year.
+
+    Returns:
+        Confirmation message.
+
+    Raises:
+        HTTPException: If the user is not an admin, or if the plant or data is invalid.
+    """
+    if "admin" not in current_user.get("user_role", []):
+        raise HTTPException(status_code=403, detail="No access allowed: Only admins can delete employees")
+
+    print(f"Deleting employee with ID:", request.employee_id)
+    
+    try:
+        result = await delete_employee_service(
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
+            financial_year=current_user["financial_year"].replace("-", "_"),
+            employee_id=request.employee_id
+        )
+        return {"detail": "Employee deleted successfully"}
     except HTTPException as e:
         raise e
     except Exception as e:

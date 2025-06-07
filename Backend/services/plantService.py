@@ -4,11 +4,15 @@ from grpc import Status
 from pydantic import ValidationError
 from bson import ObjectId
 from datetime import datetime
-from models.plantEmployeeModel import Employee, PlantEmployee, PlantManager
+from models.plantEmployeeModel import Employee, EmployeeUpdate, PlantEmployee, PlantManager
 from database import company_collection, get_plants_employees_collection, plants_collection , plants_employees_collection , reports_collection
 from fastapi import HTTPException
 import logging
+from passlib.context import CryptContext
+from services.auditServices import log_action_service
 
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -348,3 +352,113 @@ async def   get_all_plant_employees_service(company_id: str, plant_id: str, fina
             status_code=500
             
         )
+        
+        
+        
+        
+async def update_employee_service(company_id: str, plant_id: str, financial_year: str, employee_update: EmployeeUpdate) -> PlantEmployee:
+    try:
+        collection = get_plants_employees_collection()
+        if collection is None:
+            logger.error("Database collection 'plant_employee' is not initialized")
+            raise HTTPException(
+                status_code=500,
+                
+            )
+        plant_data = await collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id,
+            "financial_year": financial_year
+        })
+        if not plant_data:
+            logger.warning(f"No plant found for company_id={company_id}, plant_id={plant_id}, financial_year={financial_year}")
+            raise HTTPException(
+                status_code=404,
+             
+            )
+        employees = plant_data.get("employees", [])
+        employee_index = next((i for i, emp in enumerate(employees) if emp["employee_id"] == employee_update.employee_id), -1)
+        if employee_index == -1:
+            logger.warning(f"Employee {employee_update.employee_id} not found in plant_id={plant_id}")
+            raise HTTPException(
+                status_code=404,
+              
+            )
+        update_data = {k: v for k, v in employee_update.dict(exclude_unset=True).items() if k != "employee_id"}
+        if update_data.get("password"):
+            update_data["password"] = pwd_context.hash(update_data["password"])
+        employees[employee_index].update(update_data)
+        result = await collection.update_one(
+            {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
+            {"$set": {"employees": employees}}
+        )
+        if result.modified_count == 0:
+            logger.warning(f"No changes applied for employee {employee_update.employee_id}")
+            raise HTTPException(
+                status_code=400,
+                
+            )
+        updated_plant = await collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id,
+            "financial_year": financial_year
+        })
+        logger.info(f"Updated employee {employee_update.employee_id} in plant_id={plant_id}")
+        return PlantEmployee(**updated_plant)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating employee {employee_update.employee_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500
+            
+        )
+        
+        
+        
+        
+async def delete_employee_service(company_id: str, plant_id: str, financial_year: str, employee_id: str) -> Dict[str, str]:
+    print(f"Deleting employee {employee_id} from plant {plant_id} for company {company_id} in financial year {financial_year}")
+    try:
+        collection = get_plants_employees_collection()
+        if collection is None:
+            logger.error("Database collection 'plant_employee' is not initialized")
+            raise HTTPException(status_code=500, detail="Database collection not initialized")
+        
+        # Check if plant_id exists
+        plant_data = await collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id,
+            "financial_year": financial_year
+        })
+        if not plant_data:
+            logger.warning(f"No plant found for company_id={company_id}, plant_id={plant_id}, financial_year={financial_year}")
+            raise HTTPException(status_code=404, detail="Plant not found")
+        
+        # Check if employee exists
+        employees = plant_data.get("employees", [])
+        if not any(emp["employee_id"] == employee_id for emp in employees):
+            logger.warning(f"Employee {employee_id} not found in plant_id={plant_id}")
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        # Remove the employee from the employees array
+        result = await collection.update_one(
+            {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
+            {"$pull": {"employees": {"employee_id": employee_id}}}
+        )
+        
+        if result.modified_count == 0:
+            logger.warning(f"Failed to delete employee {employee_id} from plant_id={plant_id}")
+            raise HTTPException(status_code=400, detail="No changes applied")
+        
+         # Log the delete action
+         
+        
+        logger.info(f"Deleted employee {employee_id} from plant_id={plant_id}")
+        return {"detail": "Employee deleted successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting employee {employee_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")

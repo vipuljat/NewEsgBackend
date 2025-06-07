@@ -19,6 +19,15 @@ class Employee(BaseModel):
     password: str
     department: str
     user_role: List[str]  # e.g., "hr", "admin", "staff"
+    
+
+class EmployeeUpdate(BaseModel):
+    employee_id: str
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    department: Optional[str] = None
+    user_role: Optional[List[str]] = None
 
 class PlantEmployee(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
