@@ -1,7 +1,7 @@
 from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException
 from models.plantEmployeeModel import Employee, InitializePlantRequest, PlantEmployee, PlantManager, UpdateEmployeeRolesRequest
-from services.plantService import get_section_progress_service, initialize_plant_service, create_employee_service, update_employee_roles_service
+from services.plantService import get_all_plant_employees_service, get_section_progress_service, initialize_plant_service, create_employee_service, update_employee_roles_service
 from auth import get_current_user
 
 router = APIRouter(prefix="/plants", tags=["Plants"])
@@ -55,22 +55,17 @@ async def initialize_plant(request: InitializePlantRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@router.post("/{plant_id}/employees/{financial_year}")
+@router.post("/employees")
 async def create_employee(
-    company_id: str,
-    plant_id: str,
-    financial_year: str,
-    employee: Employee
+    employee: Employee,
+    current_user: Dict = Depends(get_current_user)
 ) -> PlantEmployee:
     """
-    Create a new employee for a plant.
+    Create a new employee for a plant using token data.
 
     Args:
-        company_id: Company identifier (query parameter).
-        plant_id: Plant identifier (path parameter).
-        financial_year: Financial year (path parameter, e.g., '2023-2024').
         employee: Employee data (employee_id, name, email, password, department, user_role).
-        current_user: Current user info including user_id, user_role.
+        current_user: Current user info including company_id, plant_id, financial_year, user_role.
 
     Returns:
         Updated plant employee record as a PlantEmployee model.
@@ -78,22 +73,24 @@ async def create_employee(
     Raises:
         HTTPException: If the plant or employee data is invalid, or user is not admin.
     """
-
+    if "admin" not in current_user.get("user_role", []):
+        raise HTTPException(status_code=403, detail="Only admins can create employees")
+    
     try:
-        return await create_employee_service(company_id, plant_id, financial_year, employee)
+        return await create_employee_service(
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
+            financial_year=current_user["financial_year"],
+            employee=employee
+        )
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
     
-    
-    
-@router.put("/{plant_id}/employees/{financial_year}/roles")
+@router.put("/employees/updateRole")
 async def update_employee_roles(
-    company_id: str,
-    plant_id: str,
-    financial_year: str,
     request: UpdateEmployeeRolesRequest,
     current_user: Dict = Depends(get_current_user)
 ) -> PlantEmployee:
@@ -122,13 +119,45 @@ async def update_employee_roles(
 
     try:
         return await update_employee_roles_service(
-            company_id=company_id,
-            plant_id=plant_id,
-            financial_year=financial_year,
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
+            financial_year=current_user["financial_year"].replace("-", "_"),
             employee_id=request.employee_id,
             roles=request.roles,
             updated_by=user_id
         )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    
+
+@router.get("/employees")
+async def get_all_plant_employees(
+    current_user: Dict = Depends(get_current_user)
+):
+    """
+    Fetch all employees for the authenticated user's plant, accessible only to admin.
+
+    Args:
+        current_user: Current user info including user_id, user_role, company_id, plant_id, financial_year.
+
+    Returns:
+        List of employees for the user's plant.
+
+    Raises:
+        HTTPException: If the user is not a admin, or if the plant or data is invalid.
+    """
+    if "admin" not in current_user.get("user_role", []):
+        raise HTTPException(status_code=403, detail="No access allowed: Only admins can view employees")
+
+    try:
+        employees = await get_all_plant_employees_service(
+            company_id=current_user["company_id"],
+            plant_id=current_user["plant_id"],
+            financial_year=current_user["financial_year"].replace("-", "_")
+        )
+        return employees
     except HTTPException as e:
         raise e
     except Exception as e:

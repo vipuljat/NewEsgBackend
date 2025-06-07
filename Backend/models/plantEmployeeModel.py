@@ -8,6 +8,7 @@ class PlantManager(BaseModel):
     name: str
     employee_id: str
     contact_email: EmailStr
+    password: str
     contact_phone: Optional[str] = None
     user_role: str
 

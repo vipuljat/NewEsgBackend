@@ -31,7 +31,7 @@ class TokenResponse(BaseModel):
     token_type: str
     user_id: str
     email: EmailStr
-    user_role: List[str]
+    user_role: List[str]  # Changed to List[str] to handle both plant_manager and employees
     user_name: str
     company_id: str
     plant_id: Optional[str] = None
@@ -40,7 +40,7 @@ class TokenResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login_user(login_data: LoginRequest):
     """
-    Authenticate a user (company admin or plant employee) and return a JWT access token.
+    Authenticate a user (company admin, plant manager, or plant employee) and return a JWT access token.
     """
     try:
         # Validate database collections
@@ -100,19 +100,20 @@ async def login_user(login_data: LoginRequest):
             company_id = user["company_id"]
             plant_id = None
             email = user["email"]
+            user_name = user.get("name", "Admin User")  # Fallback name if not provided
             financial_year = user.get("financial_year", "2023-2024")  # Fallback if missing
 
             logger.info(f"Admin logged in: user_id={user_id}, user_role={user_role}, company_id={company_id}")
 
         else:
-            # Try authenticating as plant employee in plant_employee
+            # Try authenticating as plant manager or employee in plant_employee
             pipeline = [
                 {
-                    "$unwind": "$employees"
-                },
-                {
                     "$match": {
-                        "employees.email": login_data.email.lower()
+                        "$or": [
+                            {"plant_manager.contact_email": login_data.email.lower()},
+                            {"employees.email": login_data.email.lower()}
+                        ]
                     }
                 },
                 {
@@ -120,64 +121,101 @@ async def login_user(login_data: LoginRequest):
                         "company_id": 1,
                         "plant_id": 1,
                         "financial_year": 1,
-                        "employee": "$employees"
+                        "plant_manager": 1,
+                        "employees": 1
                     }
                 }
             ]
-            employee_result = await plant_employee_collection.aggregate(pipeline).to_list(length=1)
-            if not employee_result:
+            result = await plant_employee_collection.aggregate(pipeline).to_list(length=1)
+            if not result:
                 logger.warning(f"Login attempt with non-existent email: {login_data.email}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid email or password"
                 )
 
-            employee_data = employee_result[0]
-            employee = employee_data["employee"]
+            data = result[0]
+            company_id = data["company_id"]
+            plant_id = data["plant_id"]
+            financial_year = data.get("financial_year", "2023-2024")
 
-            # Verify password
-            password_hash = employee.get("password")
-            if not password_hash:
-                logger.error(f"Employee with email {login_data.email} has missing password field")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Internal server error: Employee data corrupted"
-                )
+            # Check if the user is the plant manager
+            if data.get("plant_manager") and data["plant_manager"].get("contact_email") == login_data.email.lower():
+                plant_manager = data["plant_manager"]
+                password_hash = plant_manager.get("password")
+                if not password_hash:
+                    logger.error(f"Plant manager with email {login_data.email} has missing password field")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Internal server error: Plant manager data corrupted"
+                    )
 
-            if not pwd_context.verify(login_data.password, password_hash):
-                logger.warning(f"Invalid password attempt for employee email: {login_data.email}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid email or password"
-                )
+                if not pwd_context.verify(login_data.password, password_hash):
+                    logger.warning(f"Invalid password attempt for plant manager email: {login_data.email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid email or password"
+                    )
 
-            # Validate required fields
-            required_fields = ["employee_id", "user_role", "email"]
-            missing_fields = [field for field in required_fields if field not in employee or employee[field] is None]
-            if missing_fields:
-                logger.error(f"Missing required fields for employee email {login_data.email}: {missing_fields}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Employee data incomplete: missing {', '.join(missing_fields)}"
-                )
+                # Validate required fields
+                required_fields = ["employee_id", "user_role", "contact_email", "name"]
+                missing_fields = [field for field in required_fields if field not in plant_manager or plant_manager[field] is None]
+                if missing_fields:
+                    logger.error(f"Missing required fields for plant manager email {login_data.email}: {missing_fields}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Plant manager data incomplete: missing {', '.join(missing_fields)}"
+                    )
 
-            if not employee_data.get("company_id") or not employee_data.get("plant_id"):
-                logger.error(f"Missing company_id or plant_id for employee email {login_data.email}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Employee data incomplete: missing company_id or plant_id"
-                )
+                user_id = plant_manager["employee_id"]
+                user_role = [plant_manager["user_role"]]  # Convert to list for consistency
+                user_name = plant_manager["name"]
+                email = plant_manager["contact_email"]
 
-            # Employee details
-            user_id = employee["employee_id"]
-            user_role = employee["user_role"]
-            user_name = employee["name"]
-            company_id = employee_data["company_id"]
-            plant_id = employee_data["plant_id"]
-            email = employee["email"]
-            financial_year = employee_data.get("financial_year", "2023-2024")  # Use root-level financial_year
+                logger.info(f"Plant manager logged in: user_id={user_id}, user_role={user_role}, company_id={company_id}, plant_id={plant_id}")
 
-            logger.info(f"Employee logged in: user_id={user_id}, user_role={user_role}, company_id={company_id}, plant_id={plant_id}")
+            else:
+                # Check employees array
+                employee = next((emp for emp in data.get("employees", []) if emp["email"] == login_data.email.lower()), None)
+                if not employee:
+                    logger.warning(f"Login attempt with non-existent employee email: {login_data.email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid email or password"
+                    )
+
+                # Verify password
+                password_hash = employee.get("password")
+                if not password_hash:
+                    logger.error(f"Employee with email {login_data.email} has missing password field")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Internal server error: Employee data corrupted"
+                    )
+
+                if not pwd_context.verify(login_data.password, password_hash):
+                    logger.warning(f"Invalid password attempt for employee email: {login_data.email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid email or password"
+                    )
+
+                # Validate required fields
+                required_fields = ["employee_id", "user_role", "email", "name"]
+                missing_fields = [field for field in required_fields if field not in employee or employee[field] is None]
+                if missing_fields:
+                    logger.error(f"Missing required fields for employee email {login_data.email}: {missing_fields}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Employee data incomplete: missing {', '.join(missing_fields)}"
+                    )
+
+                user_id = employee["employee_id"]
+                user_role = employee["user_role"]
+                user_name = employee["name"]
+                email = employee["email"]
+
+                logger.info(f"Employee logged in: user_id={user_id}, user_role={user_role}, company_id={company_id}, plant_id={plant_id}")
 
         # Generate JWT with user details
         token_data = {
@@ -197,7 +235,7 @@ async def login_user(login_data: LoginRequest):
             user_id=user_id,
             email=email,
             user_role=user_role,
-            user_name  = user_name,
+            user_name=user_name,
             company_id=company_id,
             plant_id=plant_id,
             financial_year=financial_year

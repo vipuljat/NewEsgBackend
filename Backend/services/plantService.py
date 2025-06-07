@@ -1,11 +1,19 @@
 from typing import Dict, List
 import bcrypt
+from grpc import Status
 from pydantic import ValidationError
 from bson import ObjectId
 from datetime import datetime
 from models.plantEmployeeModel import Employee, PlantEmployee, PlantManager
-from database import company_collection, plants_collection , plants_employees_collection , reports_collection
+from database import company_collection, get_plants_employees_collection, plants_collection , plants_employees_collection , reports_collection
 from fastapi import HTTPException
+import logging
+
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 async def get_section_progress_service(company_id: str, plant_id: str, financial_year: str):
     """
@@ -284,3 +292,59 @@ async def update_employee_roles_service(
             emp["user_role"] = [emp["user_role"]]
     updated_plant["_id"] = str(updated_plant["_id"])  # Convert ObjectId to string
     return PlantEmployee(**updated_plant)
+
+
+
+
+
+async def   get_all_plant_employees_service(company_id: str, plant_id: str, financial_year: str) -> List[Employee]:
+    """
+    Fetch all employees for a specific plant based on company_id, plant_id, and financial_year.
+
+    Args:
+        company_id: Company identifier.
+        plant_id: Plant identifier.
+        financial_year: Financial year (e.g., '2023-2024').
+
+    Returns:
+        List of Employee objects.
+
+    Raises:
+        HTTPException: If the plant is not found or data is invalid.
+    """
+    try:
+        collection = get_plants_employees_collection()
+        if collection is None:
+            logger.error("Database collection 'plant_employee' is not initialized")
+            raise HTTPException(
+                status_code=500
+            )
+
+        # Query the plant_employee collection
+        plant = await collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id,
+            "financial_year": financial_year
+        })
+
+        if not plant:
+            logger.warning(f"No plant found for company_id={company_id}, plant_id={plant_id}, financial_year={financial_year}")
+            raise HTTPException(
+                status_code=404
+            )
+
+        # Extract employees array (default to empty list if not present)
+        employees = plant.get("employees", [])
+        logger.info(f"Retrieved {len(employees)} employees for plant_id={plant_id}")
+
+        # Convert to Pydantic Employee models
+        return [Employee(**emp) for emp in employees]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching employees for plant_id={plant_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500
+            
+        )
