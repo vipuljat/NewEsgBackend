@@ -13,17 +13,12 @@ router = APIRouter()
 class QuestionIdsRequest(BaseModel):
     question_ids: List[str]
 
-async def get_current_user_id() -> str:
-    # Mock dependency; in production, use OAuth2 or JWT
-    return "admin"
-
-
 @router.post("/company/{company_id}/plants/{plant_id}/reportsNew", response_model=Dict[str, str])
 async def create_report_endpoint(
     company_id: str,
     plant_id: str,
     report_data: CreateReportRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user)
 ):
     """
     Create a new report for a specific plant under a company.
@@ -60,80 +55,75 @@ async def create_report_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create report: {str(e)}")
 
-@router.patch("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}", response_model=Dict[str, str])  #this is the /questionData api 
+@router.get("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}")
+async def get_report_endpoint(
+    company_id: str,
+    plant_id: str,
+    financial_year: str,
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Get a report for a specific plant under a company.
+
+    Args:
+        company_id: ID of the company from URL.
+        plant_id: ID of the plant from URL.
+        financial_year: Financial year of the report.
+        user_id: ID of the user requesting the report.
+
+    Returns:
+        Report data if found.
+    """
+    try:
+        report = await get_report(company_id, plant_id, financial_year)
+        if not report:
+            # Return empty report structure with proper serialization
+            empty_report = {
+                "_id": None,  # Include _id field to match structure
+                "company_id": company_id,
+                "plant_id": plant_id,
+                "financial_year": financial_year,
+                "responses": {},
+                "created_at": None,
+                "created_by": None,
+                "last_modified_at": None,
+                "last_modified_by": None
+            }
+            return empty_report
+        return report
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get report: {str(e)}")
+
+@router.patch("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}", response_model=Dict[str, str])
 async def update_report_endpoint(
     company_id: str,
     plant_id: str,
     financial_year: str,
     updates: List[QuestionUpdate],
-    user_id: str = Depends(get_current_user_id),
-    current_user = Depends(get_current_user)
+    user_id: str = Depends(get_current_user)
 ):
-    
     """
-    Update specific question responses in an existing report.
+    Update responses in a report.
 
     Args:
-        company_id: ID of the company.
-        plant_id: ID of the plant.
-        financial_year: Financial year (e.g., '2023_2024' or '2023-2024').
-        updates: List of updates with question_id, questionname (optional), and response.
-        user_id: ID of the user performing the update.
+        company_id: ID of the company from URL.
+        plant_id: ID of the plant from URL.
+        financial_year: Financial year of the report.
+        updates: List of question updates.
+        user_id: ID of the user updating the report.
 
     Returns:
         Dict with success message.
     """
     try:
-        # Normalize financial_year
-        normalized_financial_year = financial_year.replace("_", "-")
-        
-        for update in updates:   
-            action_log = ActionLog(
-                action="Question Updated",
-                target_id=update.question_id,
-                user_id=current_user["user_id"],
-                user_role = current_user.get("user_role", [])[0],
-                performed_at=datetime.utcnow(),
-                details=None
-    )
-        await log_action_service(current_user["company_id"],current_user["plant_id"],current_user["financial_year"],action_log)
-        # Call update_report service
-        result = await update_report(company_id, plant_id, normalized_financial_year, updates, user_id)
+        result = await update_report(company_id, plant_id, financial_year, updates, user_id)
         return result
-    
-    except ValidationError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid update data: {str(e)}")
-
-@router.get("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}", response_model=Report)
-async def fetch_report(
-    company_id: str,
-    plant_id: str,
-    financial_year: str,
-    user_id: str = Depends(get_current_user_id)
-):
-    """
-    Fetch a report by company_id, plant_id, and financial_year.
-
-    Args:
-        company_id: ID of the company.
-        plant_id: ID of the plant.
-        financial_year: Financial year (e.g., '2023_2024' or '2023-2024').
-        user_id: ID of the user.
-
-    Returns:
-        Report object with responses.
-    """
-    try:
-        # Normalize financial_year
-        normalized_financial_year = financial_year.replace("_", "-")
-        report = await get_report(company_id, plant_id, normalized_financial_year)
-        if not report:
-            raise HTTPException(status_code=404, detail="Report not found")
-        return Report(**report)
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update report: {str(e)}")
 
 @router.post("/questionResponses", response_model=Dict[str, Dict])
 async def fetch_question_responses_endpoint(
