@@ -4,8 +4,24 @@ from models.newReportModel import Report, QuestionUpdate
 from models.tableQuestionResponse import TableQuestionResponse
 from datetime import datetime
 import json
-from database import landing_flow_responses_collection, audit_collection
+from database import new_reports_collection, audit_collection
 import pytz
+from bson import ObjectId
+
+def normalize_financial_year(financial_year: str) -> str:
+    """Normalize financial year format by replacing underscores with hyphens."""
+    return financial_year.replace("_", "-")
+
+def serialize_mongodb_doc(doc: Dict) -> Dict:
+    """Serialize MongoDB document by converting ObjectId to string."""
+    if not doc:
+        return None
+    
+    # Convert ObjectId to string
+    if '_id' in doc:
+        doc['_id'] = str(doc['_id'])
+    
+    return doc
 
 async def create_report(report: Report, user_id: str) -> Dict[str, str]:
     """
@@ -22,11 +38,14 @@ async def create_report(report: Report, user_id: str) -> Dict[str, str]:
         HTTPException: If creation fails.
     """
     try:
+        # Normalize financial year
+        normalized_financial_year = normalize_financial_year(report.financial_year)
+        
         # Check if report already exists
-        existing = await landing_flow_responses_collection.find_one({
+        existing = await new_reports_collection.find_one({
             "company_id": report.company_id,
             "plant_id": report.plant_id,
-            "financial_year": report.financial_year
+            "financial_year": normalized_financial_year
         })
         
         if existing:
@@ -36,7 +55,7 @@ async def create_report(report: Report, user_id: str) -> Dict[str, str]:
         report_dict = {
             "company_id": report.company_id,
             "plant_id": report.plant_id,
-            "financial_year": report.financial_year,
+            "financial_year": normalized_financial_year,
             "responses": {},
             "created_at": datetime.now(pytz.UTC),
             "created_by": user_id,
@@ -44,7 +63,7 @@ async def create_report(report: Report, user_id: str) -> Dict[str, str]:
             "last_modified_by": user_id
         }
         
-        result = await landing_flow_responses_collection.insert_one(report_dict)
+        result = await new_reports_collection.insert_one(report_dict)
         return {"message": "Report created successfully", "report_id": str(result.inserted_id)}
         
     except Exception as e:
@@ -57,7 +76,7 @@ async def get_report(company_id: str, plant_id: str, financial_year: str) -> Opt
     Args:
         company_id: ID of the company.
         plant_id: ID of the plant.
-        financial_year: Financial year (e.g., '2023-2024').
+        financial_year: Financial year (e.g., '2023-2024' or '2023_2024').
 
     Returns:
         Report dict if found, None otherwise.
@@ -66,12 +85,17 @@ async def get_report(company_id: str, plant_id: str, financial_year: str) -> Opt
         HTTPException: If retrieval fails.
     """
     try:
-        report = await landing_flow_responses_collection.find_one({
+        # Normalize financial year
+        normalized_financial_year = normalize_financial_year(financial_year)
+        
+        report = await new_reports_collection.find_one({
             "company_id": company_id,
             "plant_id": plant_id,
-            "financial_year": financial_year
+            "financial_year": normalized_financial_year
         })
-        return report
+
+        # Serialize MongoDB document
+        return serialize_mongodb_doc(report)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get report: {str(e)}")
 
@@ -93,7 +117,7 @@ async def update_report(
     Args:
         company_id: ID of the company.
         plant_id: ID of the plant.
-        financial_year: Financial year (e.g., '2023-2024').
+        financial_year: Financial year (e.g., '2023-2024' or '2023_2024').
         updates: List of updates with question_id, response (string_value, bool_value, decimal_value, link, note).
         user_id: ID of the user performing the update.
 
@@ -104,11 +128,14 @@ async def update_report(
         HTTPException: If update fails.
     """
     try:
+        # Normalize financial year
+        normalized_financial_year = normalize_financial_year(financial_year)
+        
         # Get existing report
-        report = await landing_flow_responses_collection.find_one({
+        report = await new_reports_collection.find_one({
             "company_id": company_id,
             "plant_id": plant_id,
-            "financial_year": financial_year
+            "financial_year": normalized_financial_year
         })
         
         if not report:
@@ -116,14 +143,14 @@ async def update_report(
             report = {
                 "company_id": company_id,
                 "plant_id": plant_id,
-                "financial_year": financial_year,
+                "financial_year": normalized_financial_year,
                 "responses": {},
                 "created_at": datetime.now(pytz.UTC),
                 "created_by": user_id,
                 "last_modified_at": datetime.now(pytz.UTC),
                 "last_modified_by": user_id
             }
-            await landing_flow_responses_collection.insert_one(report)
+            await new_reports_collection.insert_one(report)
         
         # Update responses
         responses = report.get("responses", {})
@@ -131,11 +158,11 @@ async def update_report(
             responses[update.question_id] = update.response
             
         # Update the report
-        await landing_flow_responses_collection.update_one(
+        await new_reports_collection.update_one(
             {
                 "company_id": company_id,
                 "plant_id": plant_id,
-                "financial_year": financial_year
+                "financial_year": normalized_financial_year
             },
             {
                 "$set": {
@@ -175,7 +202,7 @@ async def fetch_question_responses(
     """
     try:
         # Fetch report
-        report = await landing_flow_responses_collection.find_one({
+        report = await new_reports_collection.find_one({
             "company_id": company_id,
             "plant_id": plant_id,
             "financial_year": financial_year

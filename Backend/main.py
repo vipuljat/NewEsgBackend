@@ -144,7 +144,23 @@ app.add_middleware(
     allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Content-Type", "Authorization", "accept", "Origin", "X-Requested-With"],
+    allow_headers=[
+        "Content-Type", 
+        "Authorization", 
+        "accept", 
+        "Origin", 
+        "X-Requested-With",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials",
+        "Access-Control-Allow-Methods",
+        "Access-Control-Allow-Headers"
+    ],
+    expose_headers=[
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials",
+        "Access-Control-Allow-Methods",
+        "Access-Control-Allow-Headers"
+    ]
 )
 
 # Uvicorn for local testing
