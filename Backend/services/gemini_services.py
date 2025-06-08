@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -77,11 +78,53 @@ Please provide a detailed response considering the above context."""
                 response_mime_type="text/plain",
             )
             
-            return self.client.models.generate_content_stream(
-                model=self.model,
-                contents=prompt,
-                config=generate_content_config,
-            )
+            # Wrap synchronous iterator in an async generator
+            async def stream_wrapper():
+                for chunk in self.client.models.generate_content_stream(
+                    model=self.model,
+                    contents=prompt,
+                    config=generate_content_config,
+                ):
+                    yield chunk
+                    # Small delay to prevent blocking the event loop
+                    await asyncio.sleep(0)
+            
+            return stream_wrapper()
         except Exception as e:
             logger.error(f"Error generating content stream: {str(e)}")
+            raise
+
+    async def improve_brsr_response(self, question: str, response: str):
+        """Improve a BRSR question response with detailed markdown output."""
+        try:
+            # Define the BRSR-specific prompt, preserving the original logic
+            brsr_prompt = f"""This is my BRSR question and its response. Please improve the response with more details and structure it with clear headers and bullet points in markdown.
+
+**BRSR Question**: {question}
+
+**Response**: {response}
+
+Please provide an improved version of the response."""
+
+            logger.info(f"BRSR prompt generated:\n{brsr_prompt}")
+
+            # Use the existing generate_content_stream method
+            generate_content_config = types.GenerateContentConfig(
+                response_mime_type="text/plain",
+            )
+            
+            stream =  self.client.models.generate_content_stream(
+                model=self.model,
+                contents=brsr_prompt,
+                config=generate_content_config,
+            )
+
+            # Stream the response asynchronously
+            for chunk in stream:
+                if chunk.text:
+                    yield chunk.text
+                    # Small delay to prevent blocking the event loop
+                    await asyncio.sleep(0)
+        except Exception as e:
+            logger.error(f"Error generating streaming BRSR response: {str(e)}")
             raise
