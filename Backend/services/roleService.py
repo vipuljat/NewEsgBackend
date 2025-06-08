@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from typing import Dict, List
 from datetime import datetime
-from database import role_access_collection , plants_employees_collection
+from database import role_access_collection, plants_employees_collection, landing_flow_questions_collection
 import uuid
 
 async def update_permissions(
@@ -186,3 +186,24 @@ def is_valid_uuid(val: str) -> bool:
         return True
     except ValueError:
         return False
+
+async def get_accessible_questions(company_id: str, plant_id: str, financial_year: str, user_role: str) -> List[str]:
+    """
+    Get list of question IDs accessible to a user role.
+
+    Args:
+        company_id: Company identifier.
+        plant_id: Plant identifier.
+        financial_year: Financial year.
+        user_role: User role to check permissions for.
+
+    Returns:
+        List of question IDs accessible to the user role.
+    """
+    try:
+        # For now, return all questions since we're using the new collection
+        questions = await landing_flow_questions_collection.find({}).to_list(None)
+        return [q["question_id"] for q in questions]
+    except Exception as e:
+        print(f"Error getting accessible questions: {str(e)}")
+        return []

@@ -4,7 +4,8 @@ from models.newReportModel import Report, QuestionUpdate
 from models.tableQuestionResponse import TableQuestionResponse
 from datetime import datetime
 import json
-from database import new_reports_collection, audit_collection
+from database import landing_flow_responses_collection, audit_collection
+import pytz
 
 async def create_report(report: Report, user_id: str) -> Dict[str, str]:
     """
@@ -21,47 +22,58 @@ async def create_report(report: Report, user_id: str) -> Dict[str, str]:
         HTTPException: If creation fails.
     """
     try:
-        report_dict = report.dict(by_alias=True, exclude_unset=True)
-        report_dict["created_by"] = user_id
-        report_dict["created_at"] = datetime.utcnow()
-        report_dict["updated_at"] = report_dict["created_at"]
-        report_dict["responses"] = {}  # Initialize empty responses
-        report_dict["updates"] = []
-
-        result = await new_reports_collection.insert_one(report_dict)
+        # Check if report already exists
+        existing = await landing_flow_responses_collection.find_one({
+            "company_id": report.company_id,
+            "plant_id": report.plant_id,
+            "financial_year": report.financial_year
+        })
+        
+        if existing:
+            raise HTTPException(status_code=400, detail="Report already exists")
+            
+        # Initialize report with empty responses
+        report_dict = {
+            "company_id": report.company_id,
+            "plant_id": report.plant_id,
+            "financial_year": report.financial_year,
+            "responses": {},
+            "created_at": datetime.now(pytz.UTC),
+            "created_by": user_id,
+            "last_modified_at": datetime.now(pytz.UTC),
+            "last_modified_by": user_id
+        }
+        
+        result = await landing_flow_responses_collection.insert_one(report_dict)
         return {"message": "Report created successfully", "report_id": str(result.inserted_id)}
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create report: {str(e)}")
 
-async def get_report(company_id: str, plant_id: str, financial_year: str, user_id: str) -> Report:
+async def get_report(company_id: str, plant_id: str, financial_year: str) -> Optional[Dict]:
     """
-    Fetch a report by company_id, plant_id, and financial_year.
+    Get a report from the database.
 
     Args:
         company_id: ID of the company.
         plant_id: ID of the plant.
         financial_year: Financial year (e.g., '2023-2024').
-        user_id: ID of the user (for potential access control).
 
     Returns:
-        Report object.
+        Report dict if found, None otherwise.
 
     Raises:
-        HTTPException: If report not found or fetch fails.
+        HTTPException: If retrieval fails.
     """
     try:
-        report = await new_reports_collection.find_one({
+        report = await landing_flow_responses_collection.find_one({
             "company_id": company_id,
             "plant_id": plant_id,
             "financial_year": financial_year
         })
-        if not report:
-            raise HTTPException(status_code=404, detail="Report not found")
-        return Report(**report)
-    except HTTPException as e:
-        raise e
+        return report
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get report: {str(e)}")
 
 # Helper: Determine if a question is table-type (stub, replace with real logic)
 def is_table_question(question_id: str) -> bool:
@@ -92,86 +104,53 @@ async def update_report(
         HTTPException: If update fails.
     """
     try:
-        # Find the report
-        report = await new_reports_collection.find_one({
+        # Get existing report
+        report = await landing_flow_responses_collection.find_one({
             "company_id": company_id,
             "plant_id": plant_id,
             "financial_year": financial_year
         })
+        
         if not report:
-            raise HTTPException(status_code=404, detail="Report not found")
-
-        # Prepare update operations
-        update_ops = {}
-        update_logs = []
-        current_time = datetime.utcnow()
-
+            # Create new report if it doesn't exist
+            report = {
+                "company_id": company_id,
+                "plant_id": plant_id,
+                "financial_year": financial_year,
+                "responses": {},
+                "created_at": datetime.now(pytz.UTC),
+                "created_by": user_id,
+                "last_modified_at": datetime.now(pytz.UTC),
+                "last_modified_by": user_id
+            }
+            await landing_flow_responses_collection.insert_one(report)
+        
+        # Update responses
+        responses = report.get("responses", {})
         for update in updates:
-            question_id = update.question_id
-            new_response = {}
-            if update.response is not None:
-                # Use correct model for table-type questions
-                if is_table_question(question_id):
-                    if not isinstance(update.response, TableQuestionResponse):
-                        # Try to coerce dict to TableQuestionResponse
-                        try:
-                            new_response = TableQuestionResponse(**update.response).dict(exclude_unset=True)
-                        except Exception as e:
-                            raise HTTPException(status_code=400, detail=f"Invalid table response for {question_id}: {str(e)}")
-                    else:
-                        new_response = update.response.dict(exclude_unset=True)
-                else:
-                    new_response.update(update.response.dict(exclude_unset=True))
-
-            # If no fields provided, skip update
-            if not new_response:
-                continue
-
-            # Initialize or update response
-            if question_id not in report.get("responses", {}):
-                # Initialize with defaults if new
-                update_ops[f"responses.{question_id}"] = new_response
-            else:
-                # Update existing fields
-                for key, value in new_response.items():
-                    update_ops[f"responses.{question_id}.{key}"] = value
-
-            # Log the update
-            previous_value = report.get("responses", {}).get(question_id, {})
-            new_value = new_response
-            update_logs.append({
-                "question_id": question_id,
-                "updated_by": user_id,
-                "updated_at": current_time,
-                "previous_value": json.dumps(previous_value) if previous_value else None,
-                "new_value": json.dumps(new_value)
-            })
-
-        # Apply updates
-        if update_ops:
-            update_ops["updated_at"] = current_time
-            result = await new_reports_collection.update_one(
-                {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
-                {"$set": update_ops, "$push": {"updates": {"$each": update_logs}}}
-            )
-            if result.modified_count == 0:
-                raise HTTPException(status_code=500, detail="Failed to update report")
-
-            # Also update the audit collection
-        #    await audit_collection.update_one(
-        #        {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
-        #        {"$push": {"updates": {"$each": update_logs}}},
-        #        upsert=True
-        #    )
-
+            responses[update.question_id] = update.response
+            
+        # Update the report
+        await landing_flow_responses_collection.update_one(
+            {
+                "company_id": company_id,
+                "plant_id": plant_id,
+                "financial_year": financial_year
+            },
+            {
+                "$set": {
+                    "responses": responses,
+                    "last_modified_at": datetime.now(pytz.UTC),
+                    "last_modified_by": user_id
+                }
+            }
+        )
+        
         return {"message": "Report updated successfully"}
-    except HTTPException as e:
-        raise e
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update report: {str(e)}")
-    
-    
-    
+
 async def fetch_question_responses(
     company_id: str,
     plant_id: str,
@@ -196,7 +175,7 @@ async def fetch_question_responses(
     """
     try:
         # Fetch report
-        report = await new_reports_collection.find_one({
+        report = await landing_flow_responses_collection.find_one({
             "company_id": company_id,
             "plant_id": plant_id,
             "financial_year": financial_year

@@ -10,6 +10,15 @@ from routes.newReportRoute import router as new_report_router
 from routes.moduleRoutes import router as module_router
 from routes.auditRoutes import router as audit_router
 from routes.geminiRoute import router as gemini_router
+from routes import (
+    companyRoutes,
+    plantRoutes,
+    reportRoute,
+    newReportRoute,
+    roleAccessRoutes,
+    moduleRoutes,
+    questionRoutes
+)
 import logging
 from database import init_db
 import os
@@ -121,6 +130,13 @@ app.include_router(new_report_router)
 app.include_router(module_router)
 app.include_router(audit_router)
 app.include_router(gemini_router)
+app.include_router(companyRoutes.company_router)
+app.include_router(plantRoutes.router)
+app.include_router(reportRoute.router)
+app.include_router(newReportRoute.router)
+app.include_router(roleAccessRoutes.router)
+app.include_router(moduleRoutes.router)
+app.include_router(questionRoutes.router)
 
 # CORS Configuration
 app.add_middleware(
