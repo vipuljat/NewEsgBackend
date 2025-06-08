@@ -1,0 +1,218 @@
+{
+  "version": "1.0.0",
+  "modules": [
+    {
+      "id": "landing_flow",
+      "name": "Landing Flow",
+      "submodules": [
+        {
+          "id": "general_details",
+          "submodule_name": "General Details",
+          "question_categories": [
+            {
+              "id": "corporate_identity",
+              "category_name": "Corporate Identity and Contact",
+              "questions": [
+                {
+                  "question_id": "Q1_A",
+                  "question": "Corporate Identity Number (CIN)",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q2_A",
+                  "question": "Name of Listed Entity",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q3_A",
+                  "question": "Year of incorporation",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q4_A",
+                  "question": "Registered office address",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q5_A",
+                  "question": "Corporate address",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q6_A",
+                  "question": "E-mail",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q7_A",
+                  "question": "Telephone",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q8_A",
+                  "question": "Website",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q9_A",
+                  "question": "Financial year for which reporting is being done",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q10_A",
+                  "question": "Name of the Stock Exchange(s) where shares are listed",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q11_A",
+                  "question": "Paid-up Capital",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q12_A",
+                  "question": "Name and contact details (telephone, email address) of the person who may be contacted in case of any queries on the BRSR report",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                },
+                {
+                  "question_id": "Q13_A",
+                  "question": "Reporting boundary - Are the disclosures under this report made on a standalone basis (i.e. only for the entity) or on a consolidated basis (i.e. for the entity and all the entities which form a part of its consolidated financial statements, taken together).",
+                  "type": "subjective",
+                  "has_string_value": true,
+                  "string_value_required": true,
+                  "has_decimal_value": false,
+                  "has_boolean_value": false,
+                  "has_link": false,
+                  "has_note": false,
+                  "decimal_value_required": false,
+                  "boolean_value_required": false,
+                  "link_required": false,
+                  "note_required": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+} 

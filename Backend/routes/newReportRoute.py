@@ -126,8 +126,10 @@ async def fetch_report(
     try:
         # Normalize financial_year
         normalized_financial_year = financial_year.replace("_", "-")
-        report = await get_report(company_id, plant_id, normalized_financial_year, user_id)
-        return report
+        report = await get_report(company_id, plant_id, normalized_financial_year)
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return Report(**report)
     except HTTPException as e:
         raise e
     except Exception as e:

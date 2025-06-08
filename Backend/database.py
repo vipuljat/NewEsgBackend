@@ -28,6 +28,8 @@ new_reports_collection = db["new_report"]
 
 new_reports_collection = db["new_report"]
 audit_collection = db["audit_collection"]
+landing_flow_questions_collection = db["landing_flow_questions"]
+landing_flow_responses_collection = db["landing_flow_responses"]
 
 async def init_db():
     """
@@ -35,6 +37,12 @@ async def init_db():
     """
     # Create unique index for reports_collection
     await reports_collection.create_index(
+        [("company_id", 1), ("plant_id", 1), ("financial_year", 1)],
+        unique=True
+    )
+    
+    # Create unique index for landing_flow_responses_collection
+    await landing_flow_responses_collection.create_index(
         [("company_id", 1), ("plant_id", 1), ("financial_year", 1)],
         unique=True
     )
@@ -77,3 +85,9 @@ def get_audit_collection():
 
 def get_module_collection():
     return modules_collection
+
+def get_landing_flow_questions_collection():
+    return landing_flow_questions_collection
+
+def get_landing_flow_responses_collection():
+    return landing_flow_responses_collection
