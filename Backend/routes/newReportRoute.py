@@ -1,6 +1,9 @@
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
+from models.auditModel import ActionLog
 from models.newReportModel import Report, CreateReportRequest, QuestionUpdate
+from services.auditServices import log_action_service
 from services.newReportService import create_report, get_report, update_report, fetch_question_responses
 from pydantic import ValidationError, BaseModel
 from auth import get_current_user
@@ -57,14 +60,16 @@ async def create_report_endpoint(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create report: {str(e)}")
 
-@router.patch("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}", response_model=Dict[str, str])
+@router.patch("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}", response_model=Dict[str, str])  #this is the /questionData api 
 async def update_report_endpoint(
     company_id: str,
     plant_id: str,
     financial_year: str,
     updates: List[QuestionUpdate],
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    current_user = Depends(get_current_user)
 ):
+    
     """
     Update specific question responses in an existing report.
 
@@ -81,14 +86,23 @@ async def update_report_endpoint(
     try:
         # Normalize financial_year
         normalized_financial_year = financial_year.replace("_", "-")
-
+        
+        for update in updates:   
+            action_log = ActionLog(
+                action="Question Updated",
+                target_id=update.question_id,
+                user_id=current_user["user_id"],
+                user_role = current_user.get("user_role", [])[0],
+                performed_at=datetime.utcnow(),
+                details=None
+    )
+        await log_action_service(current_user["company_id"],current_user["plant_id"],current_user["financial_year"],action_log)
         # Call update_report service
         result = await update_report(company_id, plant_id, normalized_financial_year, updates, user_id)
         return result
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update report: {str(e)}")
+    
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid update data: {str(e)}")
 
 @router.get("/company/{company_id}/plants/{plant_id}/reportsNew/{financial_year}", response_model=Report)
 async def fetch_report(

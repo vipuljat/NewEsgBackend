@@ -158,11 +158,11 @@ async def update_report(
                 raise HTTPException(status_code=500, detail="Failed to update report")
 
             # Also update the audit collection
-            await audit_collection.update_one(
-                {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
-                {"$push": {"updates": {"$each": update_logs}}},
-                upsert=True
-            )
+        #    await audit_collection.update_one(
+        #        {"company_id": company_id, "plant_id": plant_id, "financial_year": financial_year},
+        #        {"$push": {"updates": {"$each": update_logs}}},
+        #        upsert=True
+        #    )
 
         return {"message": "Report updated successfully"}
     except HTTPException as e:

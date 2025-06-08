@@ -451,8 +451,7 @@ async def delete_employee_service(company_id: str, plant_id: str, financial_year
             logger.warning(f"Failed to delete employee {employee_id} from plant_id={plant_id}")
             raise HTTPException(status_code=400, detail="No changes applied")
         
-         # Log the delete action
-         
+        
         
         logger.info(f"Deleted employee {employee_id} from plant_id={plant_id}")
         return {"detail": "Employee deleted successfully"}

@@ -1,7 +1,10 @@
+from datetime import datetime
 from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from models.auditModel import ActionLog
 from models.plantEmployeeModel import Employee, EmployeeUpdate, InitializePlantRequest, PlantEmployee, PlantManager, UpdateEmployeeRolesRequest
+from services.auditServices import log_action_service
 from services.plantService import delete_employee_service, get_all_plant_employees_service, get_section_progress_service, initialize_plant_service, create_employee_service, update_employee_roles_service, update_employee_service
 from auth import get_current_user
 
@@ -78,6 +81,16 @@ async def create_employee(
         raise HTTPException(status_code=403, detail="Only admins can create employees")
     
     try:
+        
+        action_log = ActionLog(
+            action="New Employee Created",
+            target_id=employee.employee_id,
+            user_id=current_user["user_id"],
+            user_role = current_user.get("user_role", [])[0],
+            performed_at=datetime.utcnow(),
+            details=None
+)
+        await log_action_service(current_user["company_id"],current_user["plant_id"],current_user["financial_year"],action_log)
         return await create_employee_service(
             company_id=current_user["company_id"],
             plant_id=current_user["plant_id"],
@@ -119,6 +132,17 @@ async def update_employee_roles(
         raise HTTPException(status_code=401, detail="User ID not found in token")
 
     try:
+        
+        action_log = ActionLog(
+            action="Employee Role Updated",
+            target_id=request.employee_id,
+            user_id=current_user["user_id"],
+            user_role = current_user.get("user_role", [])[0],
+            performed_at=datetime.utcnow(),
+            details=None
+)
+        await log_action_service(current_user["company_id"],current_user["plant_id"],current_user["financial_year"],action_log)
+        
         return await update_employee_roles_service(
             company_id=current_user["company_id"],
             plant_id=current_user["plant_id"],
@@ -142,12 +166,25 @@ async def update_employee(
     if "admin" not in current_user.get("user_role", []) and "admin" not in current_user.get("user_role", []):
         raise HTTPException(status_code=403, detail="Only admins can update employees")
     try:
+        
+        action_log = ActionLog(
+            action="Employee Updated",
+            target_id=employee_update.employee_id,
+            user_id=current_user["user_id"],
+            user_role = current_user.get("user_role", [])[0],
+            performed_at=datetime.utcnow(),
+            details=None
+)
+        await log_action_service(current_user["company_id"],current_user["plant_id"],current_user["financial_year"],action_log)
+        
         return await update_employee_service(
             company_id=current_user["company_id"],
             plant_id=current_user["plant_id"],
             financial_year=current_user["financial_year"],
             employee_update=employee_update
         )
+        
+        
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -194,7 +231,7 @@ async def delete_employee(
     current_user: Dict = Depends(get_current_user)
 ) -> Dict:
     
-   
+    
     """
     Delete an employee by ID, accessible only to admin.
 
@@ -220,6 +257,21 @@ async def delete_employee(
             financial_year=current_user["financial_year"].replace("-", "_"),
             employee_id=request.employee_id
         )
+        
+        
+    
+        # Form audit log payload
+        action_log = ActionLog(
+            action="Employee Deleted",
+            target_id=request.employee_id,
+            user_id=current_user["user_id"],
+            user_role = current_user.get("user_role", [])[0],
+            performed_at=datetime.utcnow(),
+            details=None
+)
+        
+        await log_action_service(current_user["company_id"],current_user["plant_id"],current_user["financial_year"],action_log)
+        # Log audit action
         return {"detail": "Employee deleted successfully"}
     except HTTPException as e:
         raise e
