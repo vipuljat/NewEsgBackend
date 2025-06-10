@@ -31,6 +31,8 @@ audit_collection = db["audit_collection"]
 landing_flow_questions_collection = db["landing_flow_questions"]
 landing_flow_responses_collection = db["landing_flow_responses"]
 
+notfications_collection = db["notifications"]
+
 async def init_db():
     """
     Initialize the database with necessary indexes and migrate existing data.
@@ -91,3 +93,6 @@ def get_landing_flow_questions_collection():
 
 def get_landing_flow_responses_collection():
     return landing_flow_responses_collection
+
+def get_notifications_collection():
+    return notfications_collection

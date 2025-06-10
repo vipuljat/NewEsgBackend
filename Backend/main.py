@@ -10,6 +10,8 @@ from routes.newReportRoute import router as new_report_router
 from routes.moduleRoutes import router as module_router
 from routes.auditRoutes import router as audit_router
 from routes.geminiRoute import router as gemini_router
+from routes.notificationsRoute import router as notifications_router
+
 from routes import (
     companyRoutes,
     plantRoutes,
@@ -137,6 +139,8 @@ app.include_router(newReportRoute.router)
 app.include_router(roleAccessRoutes.router)
 app.include_router(moduleRoutes.router)
 app.include_router(questionRoutes.router)
+# Add the notifications router
+app.include_router(notifications_router)
 
 # CORS Configuration
 app.add_middleware(
