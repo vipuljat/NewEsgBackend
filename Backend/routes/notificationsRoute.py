@@ -89,3 +89,41 @@ async def create_notification(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create notification: {str(e)}"
         )
+
+# API endpoint to get notifications
+@router.get("/", response_model=Dict)
+async def get_notifications(current_user: dict = Depends(get_current_user)):
+    try:
+        # Extract details from token
+        company_id = current_user.get("company_id")
+        plant_id = current_user.get("plant_id")
+        user_id = current_user.get("user_id")
+
+        if not all([company_id, plant_id, user_id]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing required fields"
+            )
+
+        # Find notifications for the company and plant
+        notifications_doc = await notfications_collection.find_one({
+            "company_id": company_id,
+            "plant_id": plant_id
+        })
+
+        if not notifications_doc:
+            return {"notifications": []}
+
+        # Filter notifications where the user is a recipient
+        user_notifications = [
+            notification for notification in notifications_doc["notifications"]
+            if user_id in notification["recipients"]
+        ]
+
+        return {"notifications": user_notifications}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch notifications: {str(e)}"
+        )
